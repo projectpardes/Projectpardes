@@ -1,0 +1,7 @@
+{
+  "name": "Portões do PaRDeS",
+  "description": "Uma plataforma educacional gamificada para estudo da Torá, com 613 níveis, sistema de colecionáveis e méritos, focada nos níveis de interpretação Pshat, Remez, Drash e Sod.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
