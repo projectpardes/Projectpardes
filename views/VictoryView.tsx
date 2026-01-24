@@ -24,17 +24,11 @@ const VictoryView: React.FC<VictoryViewProps> = ({ xpEarned, sparksEarned, onCon
     <div className="fixed inset-0 z-[100] bg-[#010514] overflow-hidden flex flex-col items-center justify-between py-16 px-6">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(14,165,233,0.1)_0%,_transparent_70%)] opacity-50"></div>
-        <div className="absolute top-[10%] left-[5%] text-sky-400 opacity-60 animate-pulse">
-           <i className="fas fa-star-of-david text-[120px] drop-shadow-[0_0_20px_rgba(56,189,248,0.8)]"></i>
-        </div>
         <div className="absolute top-[15%] right-[8%] text-pink-500 opacity-60 animate-bounce">
            <i className="fas fa-menorah text-[100px] drop-shadow-[0_0_20px_rgba(236,72,153,0.8)]"></i>
         </div>
         <div className="absolute top-[45%] left-[2%] text-yellow-500 opacity-30">
            <i className="fas fa-menorah text-6xl"></i>
-        </div>
-        <div className="absolute top-[50%] right-[5%] text-sky-400 opacity-40 animate-pulse delay-700">
-           <i className="fas fa-star-of-david text-8xl drop-shadow-[0_0_15px_rgba(56,189,248,0.6)]"></i>
         </div>
         {HEBREW_LETTERS.map((letter, i) => (
           <span 

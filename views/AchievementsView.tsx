@@ -181,7 +181,9 @@ const AchievementsView: React.FC<AchievementsViewProps> = ({ user, isAdmin = fal
           {user.level >= 613 ? "STATUS: CHACHAM (SÁBIO)" : `CONQUISTADOS: ${user.merits?.length || 0} / ${merits.length}`}
         </p>
         <div className="flex gap-4">
-          <i className="fas fa-star-of-david text-yellow-500/20 text-xl animate-spin-slow"></i>
+          <div className="w-10 h-10 border border-yellow-500/10 rounded-full flex items-center justify-center opacity-20">
+            <i className="fas fa-feather-pointed text-yellow-500 animate-pulse"></i>
+          </div>
         </div>
       </div>
     </div>

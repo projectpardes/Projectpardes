@@ -61,25 +61,24 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
     setLoading(true);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Construção do prompt mestre conforme especificações
+    // Prompt mestre otimizado para preencher todo o banner
     const promptParts = [
-      `A cinematic 3D Disney/Pixar style character illustration of a ${config.gender}.`,
+      `A CINEMATIC WIDE PANORAMIC 3D Disney/Pixar style illustration of a ${config.gender}.`,
       `The character has ${config.skinTone} skin tone.`,
       `Hair style: ${config.hairStyle}, Hair color: ${config.hairColor}.`,
       hasBeardOption ? `Beard style: ${config.beardStyle}, Beard color: ${config.beardColor}.` : `No facial hair.`,
-      `Clothing style: ${config.clothing} (Jewish traditional/modest fashion).`,
-      `Head accessory: ${config.accessory}.`,
-      userPhoto ? `The character should have a subtle facial resemblance to the user's facial features.` : "",
-      `CRITICAL COMPOSITION: The character must be positioned exclusively on the FAR RIGHT side of the frame, looking friendly and charismatic.`,
-      `BACKGROUND: A very simple, clean minimalist dark blue to midnight gradient background, leaving the LEFT and CENTER sections completely empty for UI elements.`,
-      `High-quality 3D render, Pixar-inspired aesthetic, magical lighting, masterwork composition.`,
-      `Aspect Ratio: 3:1 (Panoramic). Dimensions: 1920x640.`
+      `Clothing: ${config.clothing} (Jewish traditional/modest style).`,
+      `Accessory: ${config.accessory}.`,
+      userPhoto ? `Facial resemblance to the provided reference photo.` : "",
+      `COMPOSITION: Wide cinematic shot. The character is standing on the FAR RIGHT side of the frame.`,
+      `BACKGROUND: A beautiful, atmospheric minimalist sacred environment with a soft midnight-blue to golden gradient. The LEFT side of the frame is clean and empty to accommodate UI text.`,
+      `MASTERPIECE QUALITY: 3D render, Pixar-style eyes, subsurface scattering on skin, magical particles, depth of field.`,
+      `Dimensions: Wide aspect for a web banner.`
     ];
 
     const finalPrompt = promptParts.join(" ");
 
     try {
-      // Usando gemini-2.5-flash-image para geração de imagem
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { 
@@ -90,16 +89,18 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         },
         config: {
           imageConfig: {
-            aspectRatio: "16:9" // Ajustado para o modelo, o prompt pede a composição panorâmica interna
+            aspectRatio: "16:9" // Aspect ratio ideal para banners de dashboard
           }
         }
       });
 
       let finalUrl = '';
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          finalUrl = `data:image/png;base64,${part.inlineData.data}`;
-          break;
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            finalUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
         }
       }
 
@@ -111,14 +112,14 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         hearts: 5,
         merits: [],
         stickers: [],
-        avatarUrl: finalUrl || "https://picsum.photos/seed/fallback/1920/640",
+        avatarUrl: finalUrl || "https://picsum.photos/seed/fallback/1200/450",
         avatarConfig: config
       };
       
       onComplete(newUser);
     } catch (error) {
       console.error("Erro na Criação Celestial:", error);
-      alert("Houve uma interferência mística ao gerar seu avatar. Verifique sua conexão e tente novamente.");
+      alert("Houve uma interferência mística ao gerar seu avatar. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -238,7 +239,6 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
       case 4:
         return (
           <div className="space-y-8 py-4 animate-in fade-in duration-500">
-            {/* Círculo de Foto (Opção de Upload) */}
             <div className="flex flex-col items-center gap-6">
               <div className="relative">
                 <div className="w-48 h-48 rounded-full border-[6px] border-yellow-500/20 p-1.5 relative group overflow-hidden bg-slate-950 shadow-[0_0_60px_rgba(234,179,8,0.1)]">
@@ -253,11 +253,9 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
                        <i className="fas fa-camera text-2xl"></i>
                     </div>
                   </div>
-                  {/* Círculo decorativo giratório */}
                   <div className="absolute inset-0 border-[1px] border-dashed border-yellow-500/40 rounded-full animate-spin-slow pointer-events-none"></div>
                 </div>
                 
-                {/* Badge de "Foto do Rosto" */}
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-900 border border-yellow-500/30 px-4 py-1.5 rounded-full shadow-xl">
                    <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest whitespace-nowrap">Foto do Rosto (Opcional)</p>
                 </div>
@@ -282,7 +280,6 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
               </div>
             </div>
 
-            {/* Resumo Estilizado conforme Referência */}
             <div className="rounded-3xl border-2 border-yellow-500/20 bg-slate-950/60 p-8 shadow-2xl relative">
                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-950 px-6 py-1 border-x border-t border-yellow-500/20 rounded-t-xl">
                   <h5 className="text-[11px] uppercase font-bold tracking-[0.3em] text-yellow-500">Resumo do Avatar</h5>
@@ -310,7 +307,6 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
 
   return (
     <div className="min-h-screen bg-[#020617] relative overflow-hidden flex flex-col items-center py-16 px-6">
-      {/* Elementos Místicos de Fundo conforme referência */}
       <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-yellow-500/10 to-transparent blur-[100px] pointer-events-none"></div>
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
          <div className="absolute top-1/4 -left-20 w-[600px] h-[600px] border border-yellow-500/20 rounded-full blur-3xl animate-pulse"></div>
@@ -322,7 +318,6 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         <p className="text-white/40 tracking-[0.3em] uppercase text-xs font-medium">Personalize sua jornada na Torá</p>
       </header>
 
-      {/* Progress Tracker com Linha Glow */}
       <div className="flex items-center gap-6 mb-16 relative z-10">
         {[1, 2, 3, 4].map(i => (
           <React.Fragment key={i}>
@@ -335,9 +330,7 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         ))}
       </div>
 
-      {/* Card Central Estilo Referência */}
       <Card className="w-full max-w-xl p-8 lg:p-14 border-white/10 bg-slate-900/60 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.5)] relative z-10 min-h-[550px] flex flex-col justify-between rounded-[40px] border-t-white/20">
-        {/* Triângulo decorativo no topo conforme imagem */}
         <div className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-4 bg-yellow-500/20 rounded-b-full blur-sm"></div>
         
         <div className="flex-1">
@@ -373,7 +366,6 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         </div>
       </Card>
 
-      {/* Overlay de Loading Místico */}
       {loading && (
         <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-2xl z-[100] flex flex-col items-center justify-center animate-in fade-in duration-500">
           <div className="relative w-48 h-48 mb-12">

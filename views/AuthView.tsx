@@ -122,7 +122,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
         {/* Decorativo Inferior */}
         <div className="mt-12 flex items-center justify-center space-x-4 opacity-10">
           <div className="h-[1px] w-12 bg-white"></div>
-          <i className="fas fa-star-of-david text-xl"></i>
           <div className="h-[1px] w-12 bg-white"></div>
         </div>
       </div>

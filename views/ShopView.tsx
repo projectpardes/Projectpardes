@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, Rarity } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ interface ShopItem {
   cost: number;
   icon: string;
   color: string;
+  rarities?: Rarity[];
 }
 
 interface ShopViewProps {
@@ -20,10 +21,50 @@ interface ShopViewProps {
   onClose: () => void;
   onPurchaseHeart: () => void;
   onSpendSparks: (amount: number) => void;
+  onOpenChest: (rarities: Rarity[]) => void;
 }
 
-const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onSpendSparks }) => {
-  const [items, setItems] = useState<ShopItem[]>([]);
+const CHEST_ITEMS: ShopItem[] = [
+  {
+    id: 'chest-wood',
+    name: 'Baú de Madeira',
+    description: 'Pode conter uma figurinha Comum ou Rara.',
+    cost: 500,
+    icon: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/BAUS/bau%20madeira.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCQVVTL2JhdSBtYWRlaXJhLnBuZyIsImlhdCI6MTc2OTA5NjM2MCwiZXhwIjoxODAwNjMyMzYwfQ.2mzJnuy3BTgdOPuqpHyDs_sPbsgCvIXX5mfN-eciQDk',
+    color: 'text-amber-700',
+    rarities: [Rarity.COMMON, Rarity.RARE]
+  },
+  {
+    id: 'chest-silver',
+    name: 'Baú de Prata',
+    description: 'Garante uma figurinha de raridade Épica.',
+    cost: 900,
+    icon: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/BAUS/bau%20de%20prata.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCQVVTL2JhdSBkZSBwcmF0YS5wbmciLCJpYXQiOjE3NjkwOTY0MjMsImV4cCI6MTgwMDYzMjQyM30.LilEfQY0S9R8t-34il6eDQH-LSoHtOl2pejWr2WQ8QU',
+    color: 'text-slate-300',
+    rarities: [Rarity.EPIC]
+  },
+  {
+    id: 'chest-gold',
+    name: 'Baú de Ouro',
+    description: 'Garante uma figurinha de raridade Lendária.',
+    cost: 1200,
+    icon: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/BAUS/bau%20de%20ouro.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCQVVTL2JhdSBkZSBvdXJvLnBuZyIsImlhdCI6MTc2OTA5NjQ0NiwiZXhwIjoxODAwNjMyNDQ2fQ.H00NkJHhVwTSehv8EiMNo6eSooRvJPyL-QDx2knQDS8',
+    color: 'text-yellow-500',
+    rarities: [Rarity.LEGENDARY]
+  },
+  {
+    id: 'chest-ruby',
+    name: 'Baú de Rubi',
+    description: 'Garante uma figurinha de raridade Mítica!',
+    cost: 1500,
+    icon: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/BAUS/bau%20de%20rubi.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCQVVTL2JhdSBkZSBydWJpLnBuZyIsImlhdCI6MTc2OTA5NjQ2NywiZXhwIjoxODAwNjMyNDY3fQ.E5vcVesjCNK0CMpiXvDCVKEvAWVy__5387Y6vsBVv3A',
+    color: 'text-red-600',
+    rarities: [Rarity.MYTHIC]
+  }
+];
+
+const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onSpendSparks, onOpenChest }) => {
+  const [dbItems, setDbItems] = useState<ShopItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +80,7 @@ const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onS
         .order('cost', { ascending: true });
       
       if (error) throw error;
-      if (data) setItems(data);
+      if (data) setDbItems(data);
     } catch (err) {
       console.error("Erro ao carregar loja:", err);
     } finally {
@@ -57,14 +98,22 @@ const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onS
     soundManager.play(SFX.SUCCESS);
     onSpendSparks(item.cost);
     
-    // Lógica específica baseada no ícone ou nome
-    if (item.name.toLowerCase().includes('vida') || item.icon.includes('heart')) {
+    // Lógica para Baús
+    if (item.rarities) {
+      onOpenChest(item.rarities);
+      return;
+    }
+
+    // Lógica para Vidas
+    if (item.name.toLowerCase().includes('vida') || (item.icon && item.icon.includes('heart'))) {
       onPurchaseHeart();
       alert("Vida extra adquirida com sucesso! ❤️");
     } else {
       alert(`Você adquiriu ${item.name}! O efeito será aplicado na sua próxima jornada.`);
     }
   };
+
+  const allItems = [...CHEST_ITEMS, ...dbItems];
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 overflow-hidden">
@@ -95,23 +144,27 @@ const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onS
             <div className="w-12 h-12 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin"></div>
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/20 font-bold animate-pulse">Consultando Mercado...</p>
           </div>
-        ) : items.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto relative z-10">
-            {items.map((item) => (
-              <Card key={item.id} className="p-10 flex flex-col items-center text-center space-y-8 hover:border-yellow-500/40 transition-all group bg-slate-900/40 backdrop-blur-xl">
-                <div className={`w-24 h-24 rounded-[2rem] glass flex items-center justify-center text-5xl ${item.color} group-hover:scale-110 transition-all duration-500 shadow-xl border-white/5`}>
-                  <i className={`fas ${item.icon}`}></i>
+        ) : allItems.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-[1400px] mx-auto relative z-10">
+            {allItems.map((item) => (
+              <Card key={item.id} className="p-8 flex flex-col items-center text-center space-y-6 hover:border-yellow-500/40 transition-all group bg-slate-900/40 backdrop-blur-xl">
+                <div className={`w-20 h-20 rounded-[2rem] glass flex items-center justify-center text-4xl ${item.color} group-hover:scale-110 transition-all duration-500 shadow-xl border-white/5 overflow-hidden p-2`}>
+                  {item.icon && item.icon.startsWith('http') ? (
+                    <img src={item.icon} alt={item.name} className="w-full h-full object-contain drop-shadow-lg" />
+                  ) : (
+                    <i className={`fas ${item.icon}`}></i>
+                  )}
                 </div>
                 
-                <div className="space-y-3">
-                  <h3 className="text-2xl font-bold tracking-tight text-white group-hover:text-yellow-500 transition-colors">{item.name}</h3>
-                  <p className="text-sm text-white/40 leading-relaxed min-h-[3rem] font-medium">{item.description}</p>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold tracking-tight text-white group-hover:text-yellow-500 transition-colors">{item.name}</h3>
+                  <p className="text-[11px] text-white/40 leading-relaxed min-h-[2.5rem] font-medium">{item.description}</p>
                 </div>
 
-                <div className="w-full pt-6 space-y-6">
+                <div className="w-full pt-4 space-y-4">
                   <div className="flex flex-col items-center">
-                    <span className="text-[10px] uppercase tracking-[0.3em] text-white/20 font-black mb-1">Preço da Oferta</span>
-                    <div className="text-3xl font-cinzel text-yellow-500 font-bold flex items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-[0.3em] text-white/20 font-black mb-1">Preço da Oferta</span>
+                    <div className="text-2xl font-cinzel text-yellow-500 font-bold flex items-center gap-2">
                        <i className="fas fa-bolt text-xs opacity-50"></i>
                        {item.cost}
                     </div>
@@ -119,7 +172,7 @@ const ShopView: React.FC<ShopViewProps> = ({ user, onClose, onPurchaseHeart, onS
                   
                   <Button 
                     variant={user.sparks >= item.cost ? "gold" : "outline"} 
-                    className="w-full py-5 rounded-2xl" 
+                    className="w-full py-4 rounded-2xl text-[10px]" 
                     onClick={() => handlePurchase(item)}
                     disabled={user.sparks < item.cost}
                   >

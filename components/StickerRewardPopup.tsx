@@ -60,7 +60,9 @@ export const StickerRewardPopup: React.FC<StickerRewardPopupProps> = ({ sticker,
             {/* Verso da Carta */}
             <div className="absolute inset-0 backface-hidden bg-slate-900 border-4 border-white/10 rounded-[2rem] flex flex-col items-center justify-center p-8 shadow-2xl overflow-hidden">
                <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/padded-cells.png')]"></div>
-               <i className="fas fa-star-of-david text-6xl text-yellow-500/20 animate-spin-slow"></i>
+               <div className="w-20 h-20 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                  <i className="fas fa-scroll text-4xl text-yellow-500/20 animate-pulse"></i>
+               </div>
                <div className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-white/20">PaRDeS Archive</div>
             </div>
 

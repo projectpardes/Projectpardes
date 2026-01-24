@@ -16,6 +16,7 @@ export enum Rarity {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
   level: number;
   xp: number;
@@ -24,8 +25,11 @@ export interface UserProfile {
   merits: string[];
   featuredMerits?: string[];
   stickers: string[];
-  lastLevelRewarded?: number; // Para evitar recompensas duplicadas no mesmo nível
+  lastLevelRewarded?: number;
   avatarUrl?: string;
+  email?: string;
+  status?: 'Ativo' | 'Bloqueado';
+  supporter_tier?: string;
   avatarConfig?: {
     gender: string;
     skinTone: string;
@@ -62,5 +66,25 @@ export interface Achievement {
   name: string;
   description: string;
   imageUrl: string;
-  bonusSparks: number;
+  type: string;
+  targetValue: number;
+}
+
+export interface Supporter {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  method: string;
+  message?: string;
+  tier: 'Bronze' | 'Prata' | 'Ouro' | 'Benfeitor';
+}
+
+export interface Nigun {
+  id: string;
+  name: string;
+  url: string;
+  category: string;
+  is_active: boolean;
+  artist?: string;
 }

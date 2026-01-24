@@ -8,79 +8,26 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * ==============================================================================
- * SCRIPT SQL PARA O SUPABASE (Cópia Direta)
+ * SCRIPT SQL PARA CORREÇÃO DEFINITIVA (Execute no SQL Editor do Supabase)
  * ==============================================================================
  * 
- * -- 1. Habilitar suporte a UUIDs
- * CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+ * -- 1. Corrigir o erro PGRST204 (Coluna ausente ou Cache dessincronizado)
+ * -- Adiciona a coluna se ela realmente não existir
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS supporter_tier text;
  * 
- * -- 2. Criar as 4 tabelas faltantes (A nohide_questions já está funcional)
+ * -- 2. FORÇAR RECARREGAMENTO DO CACHE DO ESQUEMA (Solução para PGRST204)
+ * -- Execute este comando para que o Supabase reconheça a nova coluna imediatamente
+ * NOTIFY pgrst, 'reload schema';
  * 
- * -- Tabela PSHAT
- * CREATE TABLE IF NOT EXISTS public.pshat_questions (
- *     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *     created_at timestamptz DEFAULT now(),
- *     text text NOT NULL,
- *     options jsonb NOT NULL,
- *     correct_answer int NOT NULL,
- *     explanation text,
- *     xp_reward int DEFAULT 100,
- *     difficulty int DEFAULT 1
- * );
+ * -- 3. Garantir consistência nas tabelas de questões (Erro 42703)
+ * ALTER TABLE public.pshat_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
+ * ALTER TABLE public.remez_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
+ * ALTER TABLE public.drash_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
+ * ALTER TABLE public.sod_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
+ * ALTER TABLE public.nohide_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
  * 
- * -- Tabela REMEZ
- * CREATE TABLE IF NOT EXISTS public.remez_questions (
- *     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *     created_at timestamptz DEFAULT now(),
- *     text text NOT NULL,
- *     options jsonb NOT NULL,
- *     correct_answer int NOT NULL,
- *     explanation text,
- *     xp_reward int DEFAULT 100,
- *     difficulty int DEFAULT 1
- * );
- * 
- * -- Tabela DRASH
- * CREATE TABLE IF NOT EXISTS public.drash_questions (
- *     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *     created_at timestamptz DEFAULT now(),
- *     text text NOT NULL,
- *     options jsonb NOT NULL,
- *     correct_answer int NOT NULL,
- *     explanation text,
- *     xp_reward int DEFAULT 100,
- *     difficulty int DEFAULT 1
- * );
- * 
- * -- Tabela SOD
- * CREATE TABLE IF NOT EXISTS public.sod_questions (
- *     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
- *     created_at timestamptz DEFAULT now(),
- *     text text NOT NULL,
- *     options jsonb NOT NULL,
- *     correct_answer int NOT NULL,
- *     explanation text,
- *     xp_reward int DEFAULT 100,
- *     difficulty int DEFAULT 1
- * );
- * 
- * -- 3. Habilitar RLS (Segurança) em todas as novas tabelas
- * ALTER TABLE public.pshat_questions ENABLE ROW LEVEL SECURITY;
- * ALTER TABLE public.remez_questions ENABLE ROW LEVEL SECURITY;
- * ALTER TABLE public.drash_questions ENABLE ROW LEVEL SECURITY;
- * ALTER TABLE public.sod_questions ENABLE ROW LEVEL SECURITY;
- * 
- * -- 4. Criar Políticas de Acesso Total
- * 
- * DROP POLICY IF EXISTS "Acesso Total" ON public.pshat_questions;
- * CREATE POLICY "Acesso Total" ON public.pshat_questions FOR ALL USING (true) WITH CHECK (true);
- * 
- * DROP POLICY IF EXISTS "Acesso Total" ON public.remez_questions;
- * CREATE POLICY "Acesso Total" ON public.remez_questions FOR ALL USING (true) WITH CHECK (true);
- * 
- * DROP POLICY IF EXISTS "Acesso Total" ON public.drash_questions;
- * CREATE POLICY "Acesso Total" ON public.drash_questions FOR ALL USING (true) WITH CHECK (true);
- * 
- * DROP POLICY IF EXISTS "Acesso Total" ON public.sod_questions;
- * CREATE POLICY "Acesso Total" ON public.sod_questions FOR ALL USING (true) WITH CHECK (true);
+ * -- 4. Garantir que as tabelas de méritos e figurinhas existam
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS merits text[] DEFAULT '{}';
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stickers text[] DEFAULT '{}';
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS featured_merits text[] DEFAULT '{}';
  */

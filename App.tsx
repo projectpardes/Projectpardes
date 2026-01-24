@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
-import { UserProfile, PortalType, Sticker } from './types';
+import { UserProfile, PortalType, Sticker, Rarity } from './types';
 import { PORTAL_THEMES } from './constants';
 import { soundManager, SFX } from './services/soundService';
 import { pickSticker, getRewardType } from './services/stickerService';
@@ -51,6 +51,16 @@ const App: React.FC = () => {
 
   const currentTrack = playlist.length > 0 ? playlist[trackIndex] : null;
 
+  // Função para embaralhar array
+  const shuffleArray = (array: any[]) => {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+  };
+
   useEffect(() => {
     const fetchMusicForView = async () => {
       let category = 'Dashboard';
@@ -64,11 +74,11 @@ const App: React.FC = () => {
       const { data } = await supabase.from('nigunim')
         .select('*')
         .eq('category', category)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
+        .eq('is_active', true);
       
       if (data && data.length > 0) {
-        setPlaylist(data);
+        // Aleatoriedade: Embaralha a lista antes de definir a playlist
+        setPlaylist(shuffleArray(data));
         setTrackIndex(0);
       } else {
         setPlaylist([]);
@@ -81,11 +91,9 @@ const App: React.FC = () => {
   const handleTrackEnded = () => {
     if (playlist.length > 1) {
       setTrackIndex((prev) => (prev + 1) % playlist.length);
-    } else {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
     }
   };
 
@@ -106,14 +114,22 @@ const App: React.FC = () => {
     }
   }, [currentTrack, trackIndex, audioUnlocked]);
 
+  const checkAdminStatus = (email?: string) => {
+    const adminEmails = [
+      'gustavo@pardes.com', 
+      'admin@admin.com', 
+      'gustavolacerda.bsi@gmail.com',
+      'projectpardes@gmail.com' // Seu novo e-mail de administrador
+    ];
+    return email ? adminEmails.includes(email.toLowerCase()) : false;
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
         fetchProfile(session.user.id);
-        if (session.user.email?.includes('admin') || session.user.email === 'gustavo@pardes.com' || session.user.email === 'admin@admin.com') {
-          setIsAdmin(true);
-        }
+        setIsAdmin(checkAdminStatus(session.user.email));
       }
       fetchCurrentParasha();
       fetchAllMerits();
@@ -125,9 +141,7 @@ const App: React.FC = () => {
       setSession(session);
       if (session) {
         fetchProfile(session.user.id);
-        if (session.user.email?.includes('admin') || session.user.email === 'gustavo@pardes.com' || session.user.email === 'admin@admin.com') {
-          setIsAdmin(true);
-        }
+        setIsAdmin(checkAdminStatus(session.user.email));
       } else {
         setView('dashboard');
         setIsAdmin(false);
@@ -176,7 +190,7 @@ const App: React.FC = () => {
   const syncProfile = async (updatedUser: UserProfile) => {
     if (!session?.user?.id) return;
     
-    const payload = {
+    const payload: any = {
       id: session.user.id,
       name: updatedUser.name,
       level: updatedUser.level,
@@ -186,13 +200,32 @@ const App: React.FC = () => {
       merits: updatedUser.merits || [],
       featured_merits: updatedUser.featuredMerits || [],
       stickers: updatedUser.stickers || [],
-      last_level_rewarded: updatedUser.lastLevelRewarded,
+      last_level_rewarded: updatedUser.lastLevelRewarded || 0,
       avatar_url: updatedUser.avatarUrl,
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-    if (error) console.error("Erro ao sincronizar perfil:", error);
+    try {
+      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+      
+      if (error) {
+        console.warn("Erro no Sync (Tentativa 1):", error.message);
+        const safePayload = { ...payload };
+        if (error.message.includes('hearts')) delete safePayload.hearts;
+        if (error.message.includes('sparks')) delete safePayload.sparks;
+        if (error.message.includes('last_level_rewarded')) delete safePayload.last_level_rewarded;
+        if (error.message.includes('featured_merits')) delete safePayload.featured_merits;
+        if (error.message.includes('avatar_url')) delete safePayload.avatar_url;
+
+        const { error: retryError } = await supabase.from('profiles').upsert(safePayload, { onConflict: 'id' });
+        
+        if (retryError) {
+          console.error("Falha fatal no Sync:", retryError);
+        }
+      }
+    } catch (e) {
+      console.error("Exceção na sincronização:", e);
+    }
   };
 
   const addXP = (amount: number) => {
@@ -207,13 +240,10 @@ const App: React.FC = () => {
         newSparks += newLevel * 10;
         soundManager.play(SFX.VICTORY);
 
-        // Lógica de Recompensa de Figurinha
         const rewardType = getRewardType(newLevel);
         if (rewardType && (prev.lastLevelRewarded || 0) < newLevel) {
           const sticker = pickSticker(newLevel, allStickers, prev.stickers);
-          if (sticker) {
-            setPendingSticker(sticker);
-          }
+          if (sticker) setPendingSticker(sticker);
         }
       }
       
@@ -230,6 +260,18 @@ const App: React.FC = () => {
       setUser(updatedUser);
       syncProfile(updatedUser);
       setPendingSticker(null);
+    }
+  };
+
+  const handleOpenChest = (rarities: Rarity[]) => {
+    let candidates = allStickers.filter(s => rarities.includes(s.rarity) && !user.stickers.includes(s.id));
+    if (candidates.length === 0) candidates = allStickers.filter(s => rarities.includes(s.rarity));
+    
+    if (candidates.length > 0) {
+      const luckySticker = candidates[Math.floor(Math.random() * candidates.length)];
+      setPendingSticker(luckySticker);
+    } else {
+      alert("Não há figurinhas disponíveis nestas raridades!");
     }
   };
 
@@ -261,7 +303,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'dashboard':
-        return <Dashboard user={user} parasha={currentParasha} currentTrack={currentTrack} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} setIsAdmin={setIsAdmin} />;
+        return <Dashboard user={user} parasha={currentParasha} currentTrack={currentTrack} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
       case 'quiz-prep':
         return <QuizPreparationView user={user} portal={selectedPortal} onBack={() => setView('dashboard')} onStart={(limit) => { setQuestionLimit(limit); setView('quiz'); }} />;
       case 'quiz':
@@ -275,13 +317,13 @@ const App: React.FC = () => {
       case 'achievements':
         return <AchievementsView user={user} isAdmin={isAdmin} onClose={() => setView('dashboard')} onUpdateUser={(u) => { setUser(u); syncProfile(u); }} />;
       case 'shop':
-        return <ShopView user={user} onClose={() => setView('dashboard')} onPurchaseHeart={() => updateHearts(1)} onSpendSparks={(amount) => updateSparks(-amount)} />;
+        return <ShopView user={user} onClose={() => setView('dashboard')} onPurchaseHeart={() => updateHearts(1)} onSpendSparks={(amount) => updateSparks(-amount)} onOpenChest={handleOpenChest} />;
       case 'admin':
-        return <AdminDashboard onRefreshParasha={fetchCurrentParasha} onRefreshMerits={fetchAllMerits} onClose={() => setView('dashboard')} />;
+        return isAdmin ? <AdminDashboard onRefreshParasha={fetchCurrentParasha} onRefreshMerits={fetchAllMerits} onClose={() => setView('dashboard')} /> : <Dashboard user={user} parasha={currentParasha} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
       case 'avatar-creation':
         return <AvatarCreationView onComplete={(updatedUser) => { setUser(updatedUser); syncProfile(updatedUser); setView('dashboard'); }} />;
       default:
-        return <Dashboard user={user} parasha={currentParasha} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} setIsAdmin={setIsAdmin} />;
+        return <Dashboard user={user} parasha={currentParasha} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
     }
   };
 

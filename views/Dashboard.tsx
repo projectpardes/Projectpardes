@@ -13,15 +13,94 @@ interface DashboardProps {
   allMerits: any[];
   onStartJourney: (portal: PortalType) => void;
   setView: (v: any) => void;
-  setIsAdmin: (isAdmin: boolean) => void;
+  isAdmin: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allMerits, onStartJourney, setView, setIsAdmin }) => {
+const PortalCard: React.FC<{
+  type: PortalType;
+  data: any;
+  isLocked: boolean;
+  onClick: () => void;
+}> = ({ type, data, isLocked, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div 
+      className="flex flex-col items-center w-full"
+      onMouseEnter={() => !isLocked && setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div 
+        className={`relative group w-full overflow-hidden rounded-3xl transition-all duration-500 ${isLocked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-4 cursor-pointer shadow-[0_20px_50px_rgba(0,0,0,0.6)]'}`}
+        onClick={onClick}
+        style={{ paddingBottom: '128%' }} /* Relação 25:32 */
+      >
+        {/* Fundo Desfocado para preencher o card sem vácuo visual */}
+        <div className="absolute inset-0 w-full h-full bg-slate-900">
+           <img 
+              src={data.image} 
+              alt="" 
+              className="w-full h-full object-cover blur-xl opacity-30 scale-110" 
+           />
+        </div>
+
+        {/* Camada de Mídia Principal: object-contain garante que NADA seja cortado */}
+        <div className="absolute inset-0 w-full h-full flex items-center justify-center p-1">
+          {!isLocked && isHovered && data.video ? (
+            <video 
+              src={data.video} 
+              autoPlay 
+              loop 
+              muted 
+              playsInline 
+              className="w-full h-full object-contain animate-in fade-in duration-500 z-10"
+            />
+          ) : (
+            <img 
+              src={data.image} 
+              alt={type} 
+              className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105 z-10" 
+            />
+          )}
+        </div>
+        
+        {/* Overlay de Gradiente Suave para profundidade */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-40 group-hover:opacity-20 transition-opacity duration-500 z-20"></div>
+        
+        {/* Estado Bloqueado */}
+        {isLocked && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px] z-30">
+            <i className="fas fa-lock text-4xl text-white/30 mb-3 animate-pulse"></i>
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">Bloqueado Nível {data.unlockLevel}</span>
+          </div>
+        )}
+
+        {/* Brilho de Borda */}
+        {!isLocked && (
+          <div className="absolute inset-0 border-2 border-white/0 group-hover:border-yellow-500/20 rounded-3xl transition-all duration-500 pointer-events-none z-40"></div>
+        )}
+      </div>
+
+      {/* Título e Descrição abaixo do Portal */}
+      <div className="mt-5 text-center w-full animate-in fade-in slide-in-from-bottom-2 duration-700">
+         <h5 className="font-cinzel text-lg font-bold text-yellow-500/90 tracking-[0.2em] uppercase mb-1 drop-shadow-md">
+           {type === PortalType.NOAHIDE ? '7 Leis' : type}
+         </h5>
+         <p className="text-[9px] text-white/40 font-medium leading-relaxed tracking-wide px-4 italic line-clamp-2">
+           {data.description}
+         </p>
+      </div>
+    </div>
+  );
+};
+
+const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allMerits, onStartJourney, setView, isAdmin }) => {
   const currentLevelXP = Math.floor(Math.pow(user.level, 1.7) * 100);
   const progressPercent = Math.min(100, (user.xp / currentLevelXP) * 100);
 
   const profileWallpaper = user.avatarUrl || "https://picsum.photos/seed/profile_wallpaper/800/400";
   const parashaBanner = parasha?.banner_url || 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&q=80&w=1440';
+  const parashaVideo = parasha?.video_url;
 
   const activeMeritIds = (user.featuredMerits && user.featuredMerits.length > 0) 
     ? user.featuredMerits 
@@ -54,9 +133,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
     <div className="flex flex-col min-h-screen bg-transparent">
       {/* Banner Principal Parasha */}
       <div className="relative h-[450px] w-full flex-shrink-0 cursor-pointer group" onClick={() => navigate('parasha-details')}>
-        <div className="absolute inset-0 bg-cover bg-center transition-transform duration-[3s] group-hover:scale-105" style={{ backgroundImage: `url('${parashaBanner}')` }}>
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
-        </div>
+        {parashaVideo ? (
+          <div className="absolute inset-0 overflow-hidden">
+             <video 
+               src={parashaVideo} 
+               autoPlay 
+               loop 
+               muted 
+               playsInline 
+               className="w-full h-full object-cover transition-transform duration-[3s] group-hover:scale-105"
+             />
+             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-cover bg-center transition-transform duration-[3s] group-hover:scale-105" style={{ backgroundImage: `url('${parashaBanner}')` }}>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
+          </div>
+        )}
         
         <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-20">
           <div>
@@ -67,9 +160,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             <button onClick={(e) => { e.stopPropagation(); navigate('ranking'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 text-yellow-500 shadow-lg shadow-yellow-500/10">
               <i className="fas fa-trophy"></i>
             </button>
-            <button onClick={(e) => { e.stopPropagation(); navigate('admin'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10">
-              <i className="fas fa-cog text-white/70"></i>
-            </button>
+            {/* Ícone Admin Estritamente Protegido */}
+            {isAdmin && (
+              <button onClick={(e) => { e.stopPropagation(); navigate('admin'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10">
+                <i className="fas fa-cog text-white/70"></i>
+              </button>
+            )}
           </div>
         </div>
 
@@ -86,18 +182,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
 
       <div className="max-w-7xl mx-auto px-6 lg:px-12 -mt-24 relative z-20 space-y-16 pb-32 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Perfil e Progresso */}
+          {/* Perfil e Progresso - Avatar preenchendo o fundo como papel de parede */}
           <Card className="lg:col-span-3 border-white/10 bg-slate-950 shadow-2xl overflow-hidden relative min-h-[380px] p-0 flex flex-col md:flex-row">
-            <div className="absolute inset-0 bg-slate-950 bg-contain bg-right bg-no-repeat transition-transform duration-1000 hover:scale-[1.02]" style={{ backgroundImage: `url('${profileWallpaper}')` }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-transparent"></div>
+            {/* O Avatar preenche todo o fundo (Wallpaper style) */}
+            <div 
+              className="absolute inset-0 bg-slate-900 bg-cover bg-center bg-no-repeat transition-transform duration-1000 group-hover:scale-105" 
+              style={{ backgroundImage: `url('${profileWallpaper}')` }}
+            >
+              {/* Gradiente refinado para garantir legibilidade mantendo a arte visível */}
+              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/40 to-transparent"></div>
             </div>
 
             <div className="relative z-10 p-8 md:p-10 flex-1 flex flex-col justify-between w-full md:max-w-xl">
               <div className="space-y-6">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                    <p className="text-[10px] text-white/60 uppercase font-bold tracking-[0.2em]">Explorador da Sabedoria</p>
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                      <p className="text-[10px] text-white/60 uppercase font-bold tracking-[0.2em]">Explorador da Sabedoria</p>
+                    </div>
+                    {user.supporter_tier && (
+                      <div className="flex items-center gap-1.5 bg-yellow-500/20 px-3 py-1 rounded-full border border-yellow-500/40 backdrop-blur-md animate-in slide-in-from-right-4 duration-1000">
+                        <i className="fas fa-gem text-[10px] text-yellow-500 animate-pulse"></i>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500">{user.supporter_tier}</span>
+                      </div>
+                    )}
                   </div>
                   <h3 className="text-5xl font-bold tracking-tight drop-shadow-lg">{user.name}</h3>
                 </div>
@@ -181,7 +290,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
               )}
             </div>
 
-            {/* Indicadores do Slide */}
             <div className="absolute bottom-6 flex gap-2">
               {activeMeritIds.map((_, i) => (
                 <div 
@@ -193,81 +301,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
           </Card>
         </div>
 
-        {/* Portais do PaRDeS */}
+        {/* Portais do PaRDeS e 7 Leis */}
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-8 mb-16 w-full max-w-6xl">
             <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-white/20"></div>
-            <h4 className="font-cinzel text-3xl tracking-[0.2em] text-white/90 whitespace-nowrap uppercase text-center drop-shadow-lg">Os Quatro Portais do PaRDeS</h4>
+            <h4 className="font-cinzel text-3xl tracking-[0.2em] text-white/90 whitespace-nowrap uppercase text-center drop-shadow-lg">Portais da Sabedoria</h4>
             <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/20"></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12 w-full max-w-[1100px] justify-items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 w-full max-w-[1300px] mx-auto justify-items-center">
             {Object.entries(PORTAL_DATA).map(([type, data]) => {
-              if (type === PortalType.NOAHIDE) return null;
               const portalType = type as PortalType;
               const isLocked = user.level < data.unlockLevel;
               return (
-                <div key={type} className="flex flex-col items-center w-[250px]">
-                  <Card 
-                    className={`relative group w-[250px] h-[320px] p-0 border-none bg-transparent shadow-none overflow-hidden rounded-3xl ${isLocked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-4 transition-all duration-500 cursor-pointer'}`}
-                    onClick={() => !isLocked && handlePortalClick(portalType)}
-                  >
-                    <img src={data.image} alt={type} className="w-full h-full object-cover rounded-3xl" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent group-hover:from-slate-950/10 transition-all duration-500"></div>
-                    {isLocked && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px]">
-                        <i className="fas fa-lock text-5xl text-white/30 mb-4 animate-pulse"></i>
-                        <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/40 bg-white/5 px-4 py-1 rounded-full border border-white/10">Nível {data.unlockLevel}</span>
-                      </div>
-                    )}
-                  </Card>
-                  <div className="mt-6 text-center w-full animate-in fade-in slide-in-from-bottom-2 duration-700">
-                     <h5 className="font-cinzel text-3xl font-bold text-yellow-500/90 tracking-widest uppercase mb-2 drop-shadow-md">{type}</h5>
-                     <p className="text-[11px] text-white/50 font-medium leading-relaxed tracking-wide px-2 italic line-clamp-2">{data.description}</p>
-                  </div>
-                </div>
+                <PortalCard 
+                  key={type}
+                  type={portalType}
+                  data={data}
+                  isLocked={isLocked}
+                  onClick={() => !isLocked && handlePortalClick(portalType)}
+                />
               );
             })}
           </div>
         </div>
 
-        {/* Seção das Sete Leis Universais */}
-        <div className="flex flex-col items-center justify-center py-24 relative min-h-[600px]">
-           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.04] select-none overflow-hidden">
-             <span className="font-cinzel text-[14vw] font-bold leading-none tracking-tighter whitespace-nowrap">וּפָRַצְתָּ</span>
-           </div>
-           
-           <div className="relative z-10 flex flex-col items-center gap-12 w-full max-w-5xl mx-auto">
-             <img 
-               src="https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/images/sete%20leis.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJpbWFnZXMvc2V0ZSBsZWlzLnBuZyIsImlhdCI6MTc2ODg1MjMyOCwiZXhwIjoxODAwMzg4MzI4fQ.5Ke9MB1lRPxE8nq9DTxiHzlW_n9hjEFuWJ72wM-FYS8" 
-               alt="Sete Leis" 
-               className="w-full h-auto drop-shadow-[0_0_50px_rgba(234,179,8,0.25)] rounded-3xl animate-in fade-in zoom-in duration-1000"
-             />
-
-             <div className="flex flex-col items-center gap-6 animate-in slide-in-from-bottom-8 duration-1000 delay-500">
-               <div className="relative">
-                 <div className="absolute inset-0 bg-yellow-500/20 blur-xl rounded-full animate-pulse"></div>
-                 <i className="fas fa-star-of-david text-4xl text-yellow-500/80 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]"></i>
-               </div>
-               
-               <button 
-                 onClick={() => handlePortalClick(PortalType.NOAHIDE)}
-                 className="group relative transition-all duration-500 hover:scale-110 active:scale-95"
-               >
-                 <div className="absolute -inset-4 bg-yellow-500/10 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                 <img 
-                   src="https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/images/botao%207%20leis.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8xODAyZTIzYy1lYjZkLTQ0NWYtYWUzZS1mZGEzMjc5NGZkYjciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJpbWFnZXMvYm90YW8gNyBsZWlzLnBuZyIsImlhdCI6MTc2ODg1MzU3OSwiZXhwIjoxODAwMzg5NTc5fQ.QlawM5ZXZxEqBtIipRmWLZgxhdlBaGE3Jd6Dy7yzhCQ" 
-                   alt="Iniciar Quiz 7 Leis" 
-                   className="w-[300px] h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)] group-hover:brightness-125 transition-all"
-                 />
-               </button>
-             </div>
-           </div>
-        </div>
-
-        {/* Novo Rodapé Refinado estilo AAA */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-t border-white/10 pt-16">
-           {/* Seção Music Player AAA */}
            <div className="glass p-6 rounded-[2.5rem] border border-white/5 flex items-center justify-between group transition-all hover:bg-white/[0.03]">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 bg-yellow-500/10 rounded-2xl flex items-center justify-center relative overflow-hidden">
@@ -289,13 +348,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
                  <button className="w-10 h-10 rounded-full glass border-white/5 flex items-center justify-center hover:bg-yellow-500 hover:text-slate-950 transition-all">
                     <i className="fas fa-play text-xs"></i>
                  </button>
-                 <button className="w-10 h-10 rounded-full glass border-white/5 flex items-center justify-center hover:bg-white/10 transition-all">
-                    <i className="fas fa-question text-xs"></i>
-                 </button>
               </div>
            </div>
 
-           {/* Seção PIX AAA em Destaque */}
            <div 
              onClick={() => window.open('https://wa.me/5551981079568', '_blank')} 
              className="relative overflow-hidden group cursor-pointer bg-gradient-to-br from-purple-600/20 via-slate-950 to-slate-950 p-7 rounded-[2.5rem] border border-purple-500/20 hover:border-purple-500/50 transition-all shadow-2xl shadow-purple-900/20"
@@ -312,20 +367,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
                     <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest mt-1 italic">Ajude a manter as luzes acesas</p>
                   </div>
                 </div>
-                <div className="hidden sm:flex flex-col items-center gap-2">
-                   <div className="w-12 h-12 glass rounded-full flex items-center justify-center border-purple-500/20 group-hover:bg-purple-500 group-hover:text-white transition-all">
-                      <i className="fas fa-chevron-right"></i>
-                   </div>
-                </div>
               </div>
            </div>
         </div>
 
-        {/* Rodapé Institucional Final */}
         <div className="flex flex-col items-center pt-20 space-y-8">
            <div className="flex items-center gap-8 opacity-20">
               <div className="h-[1px] w-12 sm:w-24 bg-gradient-to-r from-transparent to-white"></div>
-              <i className="fas fa-star-of-david text-xl animate-spin-slow"></i>
               <div className="h-[1px] w-12 sm:w-24 bg-gradient-to-l from-transparent to-white"></div>
            </div>
 
@@ -340,21 +388,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
                     <i className="fab fa-instagram text-lg group-hover:scale-125"></i>
                     <span className="text-[10px] uppercase font-black tracking-widest">@Portoesdopardes</span>
                  </a>
-                 <div className="flex items-center gap-3 text-white/30">
-                    <i className="fas fa-calendar-alt text-lg"></i>
-                    <span className="text-[10px] uppercase font-black tracking-widest">Est. 2025</span>
-                 </div>
-                 <div className="flex items-center gap-3 text-white/30">
-                    <i className="fas fa-shield-alt text-lg"></i>
-                    <span className="text-[10px] uppercase font-black tracking-widest">Bnei Noach & PaRDeS</span>
-                 </div>
-              </div>
-
-              <div className="pt-8">
-                 <p className="text-[9px] text-white/10 uppercase tracking-[0.5em] font-medium max-w-lg leading-loose">
-                   © 2025 Portões do PaRDeS. Todos os direitos reservados. 
-                   A reprodução de conteúdos para fins educativos é permitida desde que citada a fonte original e o autor.
-                 </p>
               </div>
            </div>
         </div>
