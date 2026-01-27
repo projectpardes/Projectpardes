@@ -8,26 +8,19 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * ==============================================================================
- * SCRIPT SQL PARA CORREÇÃO DEFINITIVA (Execute no SQL Editor do Supabase)
+ * SCRIPT SQL PARA CORREÇÃO DO ERRO PGRST204 (Execute no SQL Editor do Supabase)
  * ==============================================================================
  * 
- * -- 1. Corrigir o erro PGRST204 (Coluna ausente ou Cache dessincronizado)
- * -- Adiciona a coluna se ela realmente não existir
- * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS supporter_tier text;
+ * -- 1. Adicionar colunas faltantes na tabela parashiot
+ * ALTER TABLE public.parashiot ADD COLUMN IF NOT EXISTS key_verse text;
+ * ALTER TABLE public.parashiot ADD COLUMN IF NOT EXISTS spiritual_phrase text;
+ * ALTER TABLE public.parashiot ADD COLUMN IF NOT EXISTS summary text;
+ * ALTER TABLE public.parashiot ADD COLUMN IF NOT EXISTS banner_url text;
+ * ALTER TABLE public.parashiot ADD COLUMN IF NOT EXISTS name_he text;
  * 
- * -- 2. FORÇAR RECARREGAMENTO DO CACHE DO ESQUEMA (Solução para PGRST204)
- * -- Execute este comando para que o Supabase reconheça a nova coluna imediatamente
+ * -- 2. Forçar atualização do cache do esquema
  * NOTIFY pgrst, 'reload schema';
  * 
- * -- 3. Garantir consistência nas tabelas de questões (Erro 42703)
- * ALTER TABLE public.pshat_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
- * ALTER TABLE public.remez_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
- * ALTER TABLE public.drash_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
- * ALTER TABLE public.sod_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
- * ALTER TABLE public.nohide_questions ADD COLUMN IF NOT EXISTS difficulty_level integer DEFAULT 1;
- * 
- * -- 4. Garantir que as tabelas de méritos e figurinhas existam
- * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS merits text[] DEFAULT '{}';
- * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS stickers text[] DEFAULT '{}';
- * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS featured_merits text[] DEFAULT '{}';
+ * -- 3. Garantir que a tabela de perfis tenha a coluna de apoiador
+ * ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS supporter_tier text;
  */

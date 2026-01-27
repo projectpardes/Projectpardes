@@ -51,7 +51,7 @@ const App: React.FC = () => {
 
   const currentTrack = playlist.length > 0 ? playlist[trackIndex] : null;
 
-  // Função para embaralhar array
+  // Função para embaralhar array (Fisher-Yates)
   const shuffleArray = (array: any[]) => {
     const newArr = [...array];
     for (let i = newArr.length - 1; i > 0; i--) {
@@ -77,7 +77,7 @@ const App: React.FC = () => {
         .eq('is_active', true);
       
       if (data && data.length > 0) {
-        // Aleatoriedade: Embaralha a lista antes de definir a playlist
+        // ALEATORIEDADE: Toda vez que muda a página, a lista é embaralhada
         setPlaylist(shuffleArray(data));
         setTrackIndex(0);
       } else {
@@ -119,7 +119,7 @@ const App: React.FC = () => {
       'gustavo@pardes.com', 
       'admin@admin.com', 
       'gustavolacerda.bsi@gmail.com',
-      'projectpardes@gmail.com' // Seu novo e-mail de administrador
+      'projectpardes@gmail.com' // ADMIN CONFIRMADO
     ];
     return email ? adminEmails.includes(email.toLowerCase()) : false;
   };
@@ -179,7 +179,8 @@ const App: React.FC = () => {
         featuredMerits: data.featured_merits || [],
         stickers: data.stickers || [],
         lastLevelRewarded: data.last_level_rewarded || 0,
-        avatarUrl: data.avatar_url
+        avatarUrl: data.avatar_url,
+        supporter_tier: data.supporter_tier
       });
       if (!data.avatar_url) setView('avatar-creation');
     } else if (error && error.code === 'PGRST116') {
@@ -206,23 +207,7 @@ const App: React.FC = () => {
     };
 
     try {
-      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-      
-      if (error) {
-        console.warn("Erro no Sync (Tentativa 1):", error.message);
-        const safePayload = { ...payload };
-        if (error.message.includes('hearts')) delete safePayload.hearts;
-        if (error.message.includes('sparks')) delete safePayload.sparks;
-        if (error.message.includes('last_level_rewarded')) delete safePayload.last_level_rewarded;
-        if (error.message.includes('featured_merits')) delete safePayload.featured_merits;
-        if (error.message.includes('avatar_url')) delete safePayload.avatar_url;
-
-        const { error: retryError } = await supabase.from('profiles').upsert(safePayload, { onConflict: 'id' });
-        
-        if (retryError) {
-          console.error("Falha fatal no Sync:", retryError);
-        }
-      }
+      await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
     } catch (e) {
       console.error("Exceção na sincronização:", e);
     }

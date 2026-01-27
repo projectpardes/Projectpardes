@@ -43,8 +43,19 @@ export const generateQuizQuestion = async (portal: PortalType, level: number): P
 export const syncParashaWithChabad = async (): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-pro-preview';
-  const prompt = `Utilize o Google Search para encontrar a Parashá da semana atual no site pt.chabad.org.
-  Extraia: Nome PT, Nome HE, Referência Bíblica, Resumo Teológico, Frase Espiritual e Versículo Chave. Retorne em JSON.`;
+  
+  const prompt = `SEARCH pt.chabad.org for the "Parasha da Semana" (Torah portion) for the current Hebrew date. 
+  Extract the name in Portuguese, the name in Hebrew characters, the biblical reference, a theological summary, an inspirational phrase and the most important verse.
+  
+  Return a JSON object with:
+  1. name_pt: Name in Portuguese.
+  2. name_he: Name in Hebrew.
+  3. reference: Book and Chapters.
+  4. summary: Detailed summary in Portuguese (approx 500 chars).
+  5. spiritual_phrase: A short inspirational quote.
+  6. key_verse: The main verse text.
+  
+  ONLY return valid JSON.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -67,6 +78,7 @@ export const syncParashaWithChabad = async (): Promise<any> => {
         }
       }
     });
+    
     return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Erro Sync Chabad:", error);

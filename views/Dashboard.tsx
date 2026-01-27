@@ -107,6 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
     : (user.merits || []).slice(0, 5);
 
   const [currentMeritIndex, setCurrentMeritIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (activeMeritIds.length <= 1) return;
@@ -124,6 +125,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
   const navigate = (v: any) => {
     soundManager.play(SFX.CLICK);
     setView(v);
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Erro ao ativar tela cheia: ${err.message}`);
+      });
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    }
   };
 
   const currentMeritId = activeMeritIds[currentMeritIndex];
@@ -157,6 +172,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             <p className="text-[10px] text-white/50 uppercase tracking-[0.3em]">Versão 3.0 Completa</p>
           </div>
           <div className="flex gap-4">
+            {/* Botão Tela Cheia */}
+            <button 
+              onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} 
+              className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 text-white/70"
+              title="Alternar Tela Cheia"
+            >
+              <i className={`fas ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
+            </button>
+
             <button onClick={(e) => { e.stopPropagation(); navigate('ranking'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 text-yellow-500 shadow-lg shadow-yellow-500/10">
               <i className="fas fa-trophy"></i>
             </button>

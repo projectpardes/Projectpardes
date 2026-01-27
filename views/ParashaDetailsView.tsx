@@ -55,15 +55,6 @@ const ParashaDetailsView: React.FC<ParashaDetailsViewProps> = ({ parasha, onClos
           </p>
         </Card>
 
-        {parasha?.spiritual_phrase && (
-          <Card className="p-8 border-yellow-500/20 bg-yellow-500/[0.03] relative overflow-hidden">
-            <i className="fas fa-quote-left absolute top-4 left-4 text-4xl text-yellow-500/10"></i>
-            <p className="text-xl italic font-medium leading-relaxed text-center relative z-10 text-white/90">
-              "{parasha.spiritual_phrase}"
-            </p>
-          </Card>
-        )}
-
         <Card className="p-8 border-white/5 bg-slate-900/40 space-y-6">
           <div className="flex items-center gap-3 border-b border-white/5 pb-4">
              <i className="fas fa-book text-yellow-500/50"></i>
