@@ -105,35 +105,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
     }
   };
 
+  const handleEditParasha = (p: any) => {
+    setParashaForm({
+      id: p.id,
+      name_pt: p.name_pt || '',
+      name_he: p.name_he || '',
+      summary: p.summary || '',
+      banner_url: p.banner_url || '',
+      start_date: p.start_date ? formatDateForInput(new Date(p.start_date)) : formatDateForInput(new Date()),
+      end_date: p.end_date ? formatDateForInput(new Date(p.end_date)) : formatDateForInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+    });
+    setShowParashaModal(true);
+  };
+
+  const handleDeleteParasha = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta Parashá permanentemente?")) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('parashiot').delete().eq('id', id);
+      if (error) throw error;
+      
+      soundManager.play(SFX.PAPER);
+      await fetchTabData();
+      onRefreshParasha();
+    } catch (e: any) {
+      console.error("Erro ao excluir:", e);
+      alert(`Erro ao excluir: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleManualParashaSave = async () => {
     if (!parashaForm.name_pt) return alert("Nome é obrigatório.");
     if (!parashaForm.start_date || !parashaForm.end_date) return alert("Datas são obrigatórias.");
 
     setLoading(true);
     try {
-      const { data: existing, error: checkError } = await supabase
-        .from('parashiot')
-        .select('id')
-        .eq('name_pt', parashaForm.name_pt)
-        .maybeSingle();
-      
-      if (checkError) throw checkError;
-
-      // Payload espelhando EXATAMENTE as colunas reais do banco
       const payload: any = {
         name_pt: parashaForm.name_pt,
         name_he: parashaForm.name_he,
         summary: parashaForm.summary,
         banner_url: parashaForm.banner_url,
         start_date: new Date(parashaForm.start_date).toISOString(),
-        end_date: new Date(parashaForm.end_date).toISOString(),
-        is_current: false
+        end_date: new Date(parashaForm.end_date).toISOString()
       };
 
       let result;
-      if (existing) {
-        result = await supabase.from('parashiot').update(payload).eq('id', existing.id);
+      if (parashaForm.id) {
+        // Atualização se existir ID
+        result = await supabase.from('parashiot').update(payload).eq('id', parashaForm.id);
       } else {
+        // Criação nova
+        payload.is_current = false;
         result = await supabase.from('parashiot').insert(payload);
       }
 
@@ -220,15 +244,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
                       <h4 className="font-bold text-lg">{p.name_pt}</h4>
                       <span className="text-yellow-500 font-cinzel text-sm">{p.name_he}</span>
                    </div>
-                   {!p.is_current && (
-                     <Button 
-                       variant="outline" 
-                       className="text-[9px] py-1 px-3 h-fit border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10"
-                       onClick={() => handleSetCurrentParasha(p.id)}
-                     >
-                       Tornar Atual
-                     </Button>
-                   )}
+                   
+                   {/* Botões de Ação: Editar, Excluir, Tornar Atual */}
+                   <div className="flex items-center gap-2">
+                      <Button variant="ghost" className="text-[10px] py-1 px-2 h-fit text-white/50 hover:text-white" onClick={() => handleEditParasha(p)} title="Editar">
+                         <i className="fas fa-edit"></i>
+                      </Button>
+                      <Button variant="ghost" className="text-[10px] py-1 px-2 h-fit text-red-500/50 hover:text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteParasha(p.id)} title="Excluir">
+                         <i className="fas fa-trash"></i>
+                      </Button>
+                      {!p.is_current && (
+                        <Button 
+                          variant="outline" 
+                          className="text-[9px] py-1 px-3 h-fit border-yellow-500/30 text-yellow-500 hover:bg-yellow-500/10"
+                          onClick={() => handleSetCurrentParasha(p.id)}
+                        >
+                          Tornar Atual
+                        </Button>
+                      )}
+                   </div>
                 </div>
                 <p className="text-xs text-white/40 line-clamp-2 italic">{p.summary}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -410,7 +444,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
              <Card className="w-full max-w-2xl p-8 border-white/10 bg-slate-900 shadow-2xl relative overflow-y-auto max-h-[90vh] custom-scrollbar">
                 <button onClick={() => setShowParashaModal(false)} className="absolute top-4 right-4 text-white/40 hover:text-white"><i className="fas fa-times"></i></button>
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-cinzel text-xl text-yellow-500 uppercase">Nova Parashá Manual</h3>
+                  <h3 className="font-cinzel text-xl text-yellow-500 uppercase">{parashaForm.id ? 'Editar Parashá' : 'Nova Parashá Manual'}</h3>
                   <Button variant="outline" className="text-[10px]" onClick={handleSyncParashaToForm} disabled={loading}>
                      {loading ? <i className="fas fa-spinner animate-spin"></i> : '🔄 Sincronizar Chabad.org'}
                   </Button>
@@ -456,7 +490,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
 
                 <div className="flex gap-3 sticky bottom-0 bg-slate-900 pt-4 border-t border-white/5">
                    <Button variant="ghost" className="flex-1" onClick={() => setShowParashaModal(false)}>Cancelar</Button>
-                   <Button variant="gold" className="flex-[2]" onClick={handleManualParashaSave} disabled={loading}>Salvar Parashá</Button>
+                   <Button variant="gold" className="flex-[2]" onClick={handleManualParashaSave} disabled={loading}>{parashaForm.id ? 'Salvar Alterações' : 'Criar Parashá'}</Button>
                 </div>
              </Card>
           </div>
