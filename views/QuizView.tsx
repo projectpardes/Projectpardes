@@ -4,7 +4,7 @@ import { PortalType, Question, UserProfile } from '../types';
 import { generateQuizQuestion } from '../services/geminiService';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { PORTAL_THEMES } from '../constants';
+import { PORTAL_THEMES, PORTAL_DATA, PORTAL_REWARDS } from '../constants';
 import { soundManager, SFX } from '../services/soundService';
 import VictoryView from './VictoryView';
 import { supabase } from '../lib/supabase';
@@ -13,7 +13,7 @@ interface QuizViewProps {
   user: UserProfile;
   portal: PortalType;
   questionLimit: number;
-  onFinish: (xp: number) => void;
+  onFinish: (xp: number, sparks: number, correctCount: number) => void;
   onClose: () => void;
 }
 
@@ -22,12 +22,18 @@ const QuizView: React.FC<QuizViewProps> = ({ user, portal, questionLimit, onFini
   const [question, setQuestion] = useState<Question | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [score, setScore] = useState(0);
+  
+  // Stats do jogo atual
+  const [scoreXP, setScoreXP] = useState(0);
+  const [scoreSparks, setScoreSparks] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  
   const [questionCount, setQuestionCount] = useState(0);
   const [showVictory, setShowVictory] = useState(false);
   const [prefetchedQuestions, setPrefetchedQuestions] = useState<any[]>([]);
 
   const theme = PORTAL_THEMES[portal];
+  const portalInfo = PORTAL_DATA[portal];
 
   const getTargetTable = (p: PortalType) => {
     switch(p) {
@@ -109,7 +115,18 @@ const QuizView: React.FC<QuizViewProps> = ({ user, portal, questionLimit, onFini
     setShowResult(true);
     
     if (index === question?.correctAnswer) {
-      setScore(s => s + (question?.xpReward || 0));
+      // Calcular recompensas baseadas na dificuldade do portal (conforme especificação)
+      let reward = { xp: 10, sparks: 5 }; // Padrão
+      
+      if (portalInfo.difficultyLabel === 'FÁCIL') reward = PORTAL_REWARDS.EASY;
+      else if (portalInfo.difficultyLabel === 'MÉDIO') reward = PORTAL_REWARDS.MEDIUM;
+      else if (portalInfo.difficultyLabel === 'DIFÍCIL') reward = PORTAL_REWARDS.HARD;
+      else if (portalInfo.difficultyLabel === 'EXTRA DIFÍCIL') reward = PORTAL_REWARDS.EXTRA_HARD;
+
+      setScoreXP(s => s + reward.xp);
+      setScoreSparks(s => s + reward.sparks);
+      setCorrectCount(c => c + 1);
+      
       soundManager.play(SFX.SUCCESS);
     } else {
       soundManager.play(SFX.ERROR);
@@ -133,11 +150,13 @@ const QuizView: React.FC<QuizViewProps> = ({ user, portal, questionLimit, onFini
   if (showVictory) {
     return (
       <VictoryView 
-        xpEarned={score} 
-        sparksEarned={Math.floor(score / 10)} 
-        onContinue={() => onFinish(score)} 
+        xpEarned={scoreXP} 
+        sparksEarned={scoreSparks} 
+        onContinue={() => onFinish(scoreXP, scoreSparks, correctCount)} 
         onReplay={() => {
-          setScore(0);
+          setScoreXP(0);
+          setScoreSparks(0);
+          setCorrectCount(0);
           setQuestionCount(0);
           setShowVictory(false);
           startQuiz();
@@ -177,7 +196,7 @@ const QuizView: React.FC<QuizViewProps> = ({ user, portal, questionLimit, onFini
         <div className="flex items-center gap-6">
           <div className="text-right hidden sm:block">
             <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">XP Ganho</p>
-            <p className="font-cinzel text-xl text-yellow-500 font-bold">+{score}</p>
+            <p className="font-cinzel text-xl text-yellow-500 font-bold">+{scoreXP}</p>
           </div>
           <div className="w-12 h-12 glass rounded-full flex items-center justify-center text-red-500 border border-red-500/10">
             <i className="fas fa-heart animate-pulse"></i>

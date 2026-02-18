@@ -1,10 +1,11 @@
 
 export enum PortalType {
+  NOAHIDE = 'Noahide',
   PSHAT = 'Pshat',
   REMEZ = 'Remez',
   DRASH = 'Drash',
-  SOD = 'Sod',
-  NOAHIDE = 'Noahide'
+  PARASHA = 'Parasha',
+  SOD = 'Sod'
 }
 
 export enum Rarity {
@@ -15,13 +16,19 @@ export enum Rarity {
   MYTHIC = 'Mítica'
 }
 
+export interface PortalStats {
+  questionsAnswered: number;
+  correctAnswers: number;
+}
+
 export interface UserProfile {
   id?: string;
   name: string;
   level: number;
   xp: number;
   sparks: number;
-  hearts: number;
+  hearts: number; // Max 613
+  portalStats: Record<PortalType, PortalStats>; // Controle de maestria
   merits: string[];
   featuredMerits?: string[];
   stickers: string[];
@@ -64,10 +71,13 @@ export interface Sticker {
 export interface Achievement {
   id: string;
   name: string;
+  hebrewName: string; // Novo campo
   description: string;
   imageUrl: string;
-  type: string;
+  iconClass?: string; // Para usar FontAwesome
+  type: 'level' | 'portal_mastery' | 'collection' | 'dedication' | 'wisdom' | 'special';
   targetValue: number;
+  targetPortal?: PortalType;
 }
 
 export interface Supporter {

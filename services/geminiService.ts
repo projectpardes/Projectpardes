@@ -144,7 +144,7 @@ export const generateStickerAI = async (theme: string, rarity: string): Promise<
     console.error("Erro ao gerar descrição do adesivo:", e);
   }
 
-  const promptImg = `A cinematic 3D Pixar style illustration of ${theme}. Jewish sacred theme, floating particles, midnight background. High quality 3D render.`;
+  const promptImg = `A cinematic 3D Pixar style illustration of ${theme}. Jewish sacred theme, floating particles, midnight background. High quality 3D render, epic, majestic, spiritual atmosphere. Avoid childish or overly cute styles.`;
   const imgResponse = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: { parts: [{ text: promptImg }] },
@@ -163,7 +163,7 @@ export const generateStickerAI = async (theme: string, rarity: string): Promise<
 
 export const generateMeritBadge = async (name: string, desc: string): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `A circular golden achievement badge for "${name}". Theme: ${desc}. Ornamental Jewish design, high-end metallic relief, transparent background (emulate with dark slate), 3D render.`;
+  const prompt = `A circular golden achievement badge for "${name}". Theme: ${desc}. Ornamental Jewish design, high-end metallic relief, transparent background (emulate with dark slate), 3D render. Elegant, serious, epic, not childish.`;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
@@ -181,7 +181,7 @@ export const generateMeritBadge = async (name: string, desc: string): Promise<st
 
 export const generateParashaBannerAI = async (name: string, summary: string): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `A wide cinematic illustration for the Torah portion "${name}". Theme: ${summary.substring(0, 100)}. Modern Jewish artistic style, vibrant spiritual colors, dark background, symbolic elements. Dimensions 1200x400 aspect ratio.`;
+  const prompt = `A wide cinematic illustration for the Torah portion "${name}". Theme: ${summary.substring(0, 100)}. Modern Jewish artistic style, vibrant spiritual colors, dark background, symbolic elements, cinematic, epic, mature tone, not childish. Dimensions 1200x400 aspect ratio.`;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',

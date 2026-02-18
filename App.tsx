@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
-import { UserProfile, PortalType, Sticker, Rarity } from './types';
-import { PORTAL_THEMES } from './constants';
+import { UserProfile, PortalType, Sticker, Rarity, PortalStats } from './types';
+import { PORTAL_THEMES, PORTAL_DATA } from './constants';
 import { soundManager, SFX } from './services/soundService';
 import { pickSticker, getRewardType } from './services/stickerService';
 import Dashboard from './views/Dashboard';
@@ -37,21 +37,38 @@ const App: React.FC = () => {
   const [trackIndex, setTrackIndex] = useState(0);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   
+  // Estado inicial do usuário com PortalStats
   const [user, setUser] = useState<UserProfile>({
     name: "Explorador",
     level: 1,
     xp: 0,
     sparks: 50,
-    hearts: 5,
+    hearts: 10,
     merits: [],
     featuredMerits: [],
     stickers: [],
-    lastLevelRewarded: 0
+    lastLevelRewarded: 0,
+    portalStats: {
+      [PortalType.NOAHIDE]: { questionsAnswered: 0, correctAnswers: 0 },
+      [PortalType.PSHAT]: { questionsAnswered: 0, correctAnswers: 0 },
+      [PortalType.REMEZ]: { questionsAnswered: 0, correctAnswers: 0 },
+      [PortalType.DRASH]: { questionsAnswered: 0, correctAnswers: 0 },
+      [PortalType.PARASHA]: { questionsAnswered: 0, correctAnswers: 0 },
+      [PortalType.SOD]: { questionsAnswered: 0, correctAnswers: 0 }
+    }
   });
 
   const currentTrack = playlist.length > 0 ? playlist[trackIndex] : null;
 
-  // Função para embaralhar array (Fisher-Yates)
+  // Lógica de XP Exponencial
+  const calculateNextLevelXP = (level: number) => {
+    // Fórmula exponencial suave: Base * (Level ^ 1.8)
+    // Nível 1: ~100 xp
+    // Nível 10: ~6300 xp
+    // Nível 613: Muito alto
+    return Math.floor(100 * Math.pow(level, 1.8));
+  };
+
   const shuffleArray = (array: any[]) => {
     const newArr = [...array];
     for (let i = newArr.length - 1; i > 0; i--) {
@@ -77,7 +94,6 @@ const App: React.FC = () => {
         .eq('is_active', true);
       
       if (data && data.length > 0) {
-        // ALEATORIEDADE: Toda vez que muda a página, a lista é embaralhada
         setPlaylist(shuffleArray(data));
         setTrackIndex(0);
       } else {
@@ -119,7 +135,7 @@ const App: React.FC = () => {
       'gustavo@pardes.com', 
       'admin@admin.com', 
       'gustavolacerda.bsi@gmail.com',
-      'projectpardes@gmail.com' // ADMIN CONFIRMADO
+      'projectpardes@gmail.com'
     ];
     return email ? adminEmails.includes(email.toLowerCase()) : false;
   };
@@ -169,6 +185,16 @@ const App: React.FC = () => {
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
+      // Garantir estrutura de portalStats se não existir no banco
+      const defaultStats = {
+        [PortalType.NOAHIDE]: { questionsAnswered: 0, correctAnswers: 0 },
+        [PortalType.PSHAT]: { questionsAnswered: 0, correctAnswers: 0 },
+        [PortalType.REMEZ]: { questionsAnswered: 0, correctAnswers: 0 },
+        [PortalType.DRASH]: { questionsAnswered: 0, correctAnswers: 0 },
+        [PortalType.PARASHA]: { questionsAnswered: 0, correctAnswers: 0 },
+        [PortalType.SOD]: { questionsAnswered: 0, correctAnswers: 0 }
+      };
+
       setUser({
         name: data.name,
         level: data.level,
@@ -180,7 +206,8 @@ const App: React.FC = () => {
         stickers: data.stickers || [],
         lastLevelRewarded: data.last_level_rewarded || 0,
         avatarUrl: data.avatar_url,
-        supporter_tier: data.supporter_tier
+        supporter_tier: data.supporter_tier,
+        portalStats: data.portal_stats || defaultStats
       });
       if (!data.avatar_url) setView('avatar-creation');
     } else if (error && error.code === 'PGRST116') {
@@ -203,6 +230,7 @@ const App: React.FC = () => {
       stickers: updatedUser.stickers || [],
       last_level_rewarded: updatedUser.lastLevelRewarded || 0,
       avatar_url: updatedUser.avatarUrl,
+      portal_stats: updatedUser.portalStats,
       updated_at: new Date().toISOString()
     };
 
@@ -213,16 +241,20 @@ const App: React.FC = () => {
     }
   };
 
-  const addXP = (amount: number) => {
+  const addXP = (amount: number, portal: PortalType, correctCount: number) => {
     setUser(prev => {
-      const newXP = prev.xp + amount;
-      const nextLevelXP = Math.floor(Math.pow(prev.level, 1.7) * 100);
+      const maxLevel = 613;
       let newLevel = prev.level;
-      let newSparks = prev.sparks + (amount / 10);
+      let newXP = prev.xp + amount;
+      let nextLevelXP = calculateNextLevelXP(newLevel);
+      let newHearts = prev.hearts;
       
-      if (newXP >= nextLevelXP) {
+      // Level Up Logic
+      while (newXP >= nextLevelXP && newLevel < maxLevel) {
+        newXP -= nextLevelXP;
         newLevel++;
-        newSparks += newLevel * 10;
+        nextLevelXP = calculateNextLevelXP(newLevel);
+        newHearts = Math.min(613, newHearts + 1); // Ganha 1 vida por nível
         soundManager.play(SFX.VICTORY);
 
         const rewardType = getRewardType(newLevel);
@@ -232,10 +264,47 @@ const App: React.FC = () => {
         }
       }
       
-      const updated = { ...prev, xp: newXP, level: newLevel, sparks: Math.floor(newSparks), lastLevelRewarded: newLevel };
+      // Atualizar estatísticas do portal
+      const currentStats = prev.portalStats?.[portal] || { questionsAnswered: 0, correctAnswers: 0 };
+      const newStats = {
+        ...prev.portalStats,
+        [portal]: {
+            questionsAnswered: currentStats.questionsAnswered + questionLimit, // Assumindo que terminou o quiz
+            correctAnswers: currentStats.correctAnswers + correctCount
+        }
+      };
+
+      const updated = { 
+          ...prev, 
+          xp: newXP, 
+          level: newLevel, 
+          hearts: newHearts, 
+          lastLevelRewarded: newLevel,
+          portalStats: newStats
+      };
+      
       syncProfile(updated);
       return updated;
     });
+  };
+
+  const consumeHeart = () => {
+    setUser(prev => {
+        const updated = { ...prev, hearts: Math.max(0, prev.hearts - 1) };
+        syncProfile(updated);
+        return updated;
+    });
+  };
+
+  const handleStartQuiz = (limit: number) => {
+    if (user.hearts <= 0) {
+        soundManager.play(SFX.ERROR);
+        alert("Você está sem corações! Aguarde ou adquira na loja.");
+        return;
+    }
+    consumeHeart();
+    setQuestionLimit(limit);
+    setView('quiz');
   };
 
   const handleClaimSticker = () => {
@@ -270,10 +339,32 @@ const App: React.FC = () => {
 
   const updateHearts = (amount: number) => {
     setUser(prev => {
-      const updated = { ...prev, hearts: Math.min(10, prev.hearts + amount) };
+      const updated = { ...prev, hearts: Math.min(613, prev.hearts + amount) };
       syncProfile(updated);
       return updated;
     });
+  };
+
+  // Lógica de Desbloqueio de Portais
+  const isPortalUnlocked = (type: PortalType): boolean => {
+    if (isAdmin) return true;
+    if (type === PortalType.NOAHIDE || type === PortalType.PSHAT) return true;
+
+    const stats = user.portalStats || {};
+    const MASTERY_THRESHOLD = 50; // Acertos necessários para "dominar"
+
+    const noahideWins = stats[PortalType.NOAHIDE]?.correctAnswers || 0;
+    const pshatWins = stats[PortalType.PSHAT]?.correctAnswers || 0;
+    const remezWins = stats[PortalType.REMEZ]?.correctAnswers || 0;
+    const drashWins = stats[PortalType.DRASH]?.correctAnswers || 0;
+    const parashaWins = stats[PortalType.PARASHA]?.correctAnswers || 0;
+
+    if (type === PortalType.REMEZ) return noahideWins >= MASTERY_THRESHOLD && pshatWins >= MASTERY_THRESHOLD;
+    if (type === PortalType.DRASH) return remezWins >= MASTERY_THRESHOLD;
+    if (type === PortalType.PARASHA) return drashWins >= MASTERY_THRESHOLD;
+    if (type === PortalType.SOD) return parashaWins >= MASTERY_THRESHOLD;
+
+    return false;
   };
 
   if (loading) return (
@@ -288,13 +379,32 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (view) {
       case 'dashboard':
-        return <Dashboard user={user} parasha={currentParasha} currentTrack={currentTrack} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
+        return <Dashboard 
+            user={user} 
+            parasha={currentParasha} 
+            currentTrack={currentTrack} 
+            allMerits={allMerits} 
+            onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} 
+            setView={setView} 
+            isAdmin={isAdmin}
+            checkUnlock={isPortalUnlocked}
+        />;
       case 'quiz-prep':
-        return <QuizPreparationView user={user} portal={selectedPortal} onBack={() => setView('dashboard')} onStart={(limit) => { setQuestionLimit(limit); setView('quiz'); }} />;
+        return <QuizPreparationView user={user} portal={selectedPortal} onBack={() => setView('dashboard')} onStart={handleStartQuiz} />;
       case 'quiz':
-        return <QuizView user={user} portal={selectedPortal} questionLimit={questionLimit} onFinish={(xp) => { addXP(xp); setView('dashboard'); }} onClose={() => setView('dashboard')} />;
+        return <QuizView 
+            user={user} 
+            portal={selectedPortal} 
+            questionLimit={questionLimit} 
+            onFinish={(xp, sparks, correct) => { 
+                addXP(xp, selectedPortal, correct); 
+                updateSparks(sparks);
+                setView('dashboard'); 
+            }} 
+            onClose={() => setView('dashboard')} 
+        />;
       case 'parasha-details':
-        return <ParashaDetailsView parasha={currentParasha} onClose={() => setView('dashboard')} onStartQuiz={() => { setSelectedPortal(PortalType.PSHAT); setView('quiz-prep'); }} />;
+        return <ParashaDetailsView parasha={currentParasha} onClose={() => setView('dashboard')} onStartQuiz={() => { setSelectedPortal(PortalType.PARASHA); setView('quiz-prep'); }} />;
       case 'ranking':
         return <RankingView user={user} onClose={() => setView('dashboard')} />;
       case 'album':
@@ -304,11 +414,11 @@ const App: React.FC = () => {
       case 'shop':
         return <ShopView user={user} onClose={() => setView('dashboard')} onPurchaseHeart={() => updateHearts(1)} onSpendSparks={(amount) => updateSparks(-amount)} onOpenChest={handleOpenChest} />;
       case 'admin':
-        return isAdmin ? <AdminDashboard onRefreshParasha={fetchCurrentParasha} onRefreshMerits={fetchAllMerits} onClose={() => setView('dashboard')} /> : <Dashboard user={user} parasha={currentParasha} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
+        return isAdmin ? <AdminDashboard onRefreshParasha={fetchCurrentParasha} onRefreshMerits={fetchAllMerits} onClose={() => setView('dashboard')} /> : null;
       case 'avatar-creation':
         return <AvatarCreationView onComplete={(updatedUser) => { setUser(updatedUser); syncProfile(updatedUser); setView('dashboard'); }} />;
       default:
-        return <Dashboard user={user} parasha={currentParasha} allMerits={allMerits} onStartJourney={(p) => { setSelectedPortal(p); setView('quiz-prep'); }} setView={setView} isAdmin={isAdmin} />;
+        return null;
     }
   };
 

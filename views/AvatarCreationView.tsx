@@ -1,6 +1,5 @@
-
 import React, { useState, useRef } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, PortalType } from '../types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { GoogleGenAI } from "@google/genai";
@@ -72,7 +71,7 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
       userPhoto ? `Facial resemblance to the provided reference photo.` : "",
       `COMPOSITION: Wide cinematic shot. The character is standing on the FAR RIGHT side of the frame.`,
       `BACKGROUND: A beautiful, atmospheric minimalist sacred environment with a soft midnight-blue to golden gradient. The LEFT side of the frame is clean and empty to accommodate UI text.`,
-      `MASTERPIECE QUALITY: 3D render, Pixar-style eyes, subsurface scattering on skin, magical particles, depth of field.`,
+      `MASTERPIECE QUALITY: 3D render, Pixar-style eyes, subsurface scattering on skin, magical particles, depth of field. Mature facial features, epic atmosphere, dignified, not childish.`,
       `Dimensions: Wide aspect for a web banner.`
     ];
 
@@ -113,7 +112,15 @@ const AvatarCreationView: React.FC<AvatarCreationViewProps> = ({ onComplete }) =
         merits: [],
         stickers: [],
         avatarUrl: finalUrl || "https://picsum.photos/seed/fallback/1200/450",
-        avatarConfig: config
+        avatarConfig: config,
+        portalStats: {
+          [PortalType.NOAHIDE]: { questionsAnswered: 0, correctAnswers: 0 },
+          [PortalType.PSHAT]: { questionsAnswered: 0, correctAnswers: 0 },
+          [PortalType.REMEZ]: { questionsAnswered: 0, correctAnswers: 0 },
+          [PortalType.DRASH]: { questionsAnswered: 0, correctAnswers: 0 },
+          [PortalType.PARASHA]: { questionsAnswered: 0, correctAnswers: 0 },
+          [PortalType.SOD]: { questionsAnswered: 0, correctAnswers: 0 }
+        }
       };
       
       onComplete(newUser);

@@ -14,15 +14,19 @@ interface DashboardProps {
   onStartJourney: (portal: PortalType) => void;
   setView: (v: any) => void;
   isAdmin: boolean;
+  checkUnlock: (type: PortalType) => boolean;
 }
 
 const PortalCard: React.FC<{
   type: PortalType;
   data: any;
   isLocked: boolean;
+  masteryCount: number;
   onClick: () => void;
-}> = ({ type, data, isLocked, onClick }) => {
+}> = ({ type, data, isLocked, masteryCount, onClick }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const MASTERY_GOAL = 50;
+  const progress = Math.min(100, (masteryCount / MASTERY_GOAL) * 100);
 
   return (
     <div 
@@ -69,9 +73,14 @@ const PortalCard: React.FC<{
         
         {/* Estado Bloqueado */}
         {isLocked && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px] z-30">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px] z-30 p-4 text-center">
             <i className="fas fa-lock text-4xl text-white/30 mb-3 animate-pulse"></i>
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">Bloqueado Nível {data.unlockLevel}</span>
+            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50 bg-white/5 px-2 py-1 rounded-full border border-white/10 mb-1">
+              Bloqueado
+            </span>
+            <span className="text-[8px] text-yellow-500/80 uppercase max-w-[150px] leading-tight">
+               Requer: {data.unlockCriteria}
+            </span>
           </div>
         )}
 
@@ -79,23 +88,47 @@ const PortalCard: React.FC<{
         {!isLocked && (
           <div className="absolute inset-0 border-2 border-white/0 group-hover:border-yellow-500/20 rounded-3xl transition-all duration-500 pointer-events-none z-40"></div>
         )}
+        
+        {/* Badge de Dificuldade */}
+        <div className={`absolute top-3 right-3 z-40 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest backdrop-blur-md border border-white/10 shadow-lg ${
+            data.difficultyLabel === 'FÁCIL' ? 'bg-green-500/20 text-green-400' :
+            data.difficultyLabel === 'MÉDIO' ? 'bg-yellow-500/20 text-yellow-400' :
+            data.difficultyLabel === 'DIFÍCIL' ? 'bg-orange-500/20 text-orange-400' :
+            'bg-red-500/20 text-red-400'
+        }`}>
+            {data.difficultyLabel}
+        </div>
       </div>
 
-      {/* Título e Descrição abaixo do Portal */}
+      {/* Título, Descrição e Progresso abaixo do Portal */}
       <div className="mt-5 text-center w-full animate-in fade-in slide-in-from-bottom-2 duration-700">
          <h5 className="font-cinzel text-lg font-bold text-yellow-500/90 tracking-[0.2em] uppercase mb-1 drop-shadow-md">
            {type === PortalType.NOAHIDE ? '7 Leis' : type}
          </h5>
-         <p className="text-[9px] text-white/40 font-medium leading-relaxed tracking-wide px-4 italic line-clamp-2">
+         <p className="text-[9px] text-white/40 font-medium leading-relaxed tracking-wide px-4 italic line-clamp-2 h-8">
            {data.description}
          </p>
+
+         {/* Barra de Maestria */}
+         {!isLocked && (
+             <div className="mt-3 px-8 group">
+                <div className="flex justify-between items-end mb-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[8px] uppercase tracking-widest text-white/40">Maestria</span>
+                    <span className="text-[8px] uppercase tracking-widest text-yellow-500">{masteryCount}/50</span>
+                </div>
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-yellow-500 transition-all duration-1000" style={{width: `${progress}%`}}></div>
+                </div>
+             </div>
+         )}
       </div>
     </div>
   );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allMerits, onStartJourney, setView, isAdmin }) => {
-  const currentLevelXP = Math.floor(Math.pow(user.level, 1.7) * 100);
+const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allMerits, onStartJourney, setView, isAdmin, checkUnlock }) => {
+  // Cálculo de XP para próximo nível (mesma fórmula do App.tsx para visualização)
+  const currentLevelXP = Math.floor(100 * Math.pow(user.level, 1.8));
   const progressPercent = Math.min(100, (user.xp / currentLevelXP) * 100);
 
   const profileWallpaper = user.avatarUrl || "https://picsum.photos/seed/profile_wallpaper/800/400";
@@ -143,6 +176,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
 
   const currentMeritId = activeMeritIds[currentMeritIndex];
   const currentMerit = allMerits.find(m => m.id === currentMeritId);
+
+  // Ordem de Exibição dos Portais (Visual)
+  // Parashá removida do grid principal conforme solicitado
+  const ORDERED_PORTALS = [
+    PortalType.NOAHIDE,
+    PortalType.PSHAT,
+    PortalType.REMEZ,
+    PortalType.DRASH,
+    PortalType.SOD
+  ];
 
   return (
     <div className="flex flex-col min-h-screen bg-transparent">
@@ -243,7 +286,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
                     </div>
                     <div className="flex items-center gap-2 bg-slate-950/60 px-4 py-1.5 rounded-full border border-red-500/30 backdrop-blur-md">
                       <i className="fas fa-heart text-red-500 text-xs"></i>
-                      <span className="text-sm font-bold text-red-400">{user.hearts}</span>
+                      <span className="text-sm font-bold text-red-400">{user.hearts}/613</span>
                     </div>
                     <div className="flex items-center gap-2 bg-slate-950/60 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
                       <span className="text-[10px] uppercase font-bold text-white/40 tracking-widest">Nível</span>
@@ -254,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
                   <div className="space-y-2">
                     <div className="flex justify-between items-end">
                       <span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Progresso do Nível</span>
-                      <span className="text-[10px] text-white/40 font-mono">{user.xp} / {currentLevelXP} XP</span>
+                      <span className="text-[10px] text-white/40 font-mono">{user.xp} XP</span>
                     </div>
                     <div className="h-2 w-full bg-slate-950/50 rounded-full overflow-hidden border border-white/5">
                       <div className="h-full bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700 animate-shimmer rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(234,179,8,0.3)]" style={{ width: `${progressPercent}%` }}></div>
@@ -333,17 +376,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/20"></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 w-full max-w-[1300px] mx-auto justify-items-center">
-            {Object.entries(PORTAL_DATA).map(([type, data]) => {
-              const portalType = type as PortalType;
-              const isLocked = user.level < data.unlockLevel;
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 w-full max-w-[1400px] mx-auto justify-items-center">
+            {ORDERED_PORTALS.map((type) => {
+              const data = PORTAL_DATA[type];
+              const isLocked = !checkUnlock(type);
+              const mastery = user.portalStats?.[type]?.correctAnswers || 0;
+              
               return (
                 <PortalCard 
                   key={type}
-                  type={portalType}
+                  type={type}
                   data={data}
                   isLocked={isLocked}
-                  onClick={() => !isLocked && handlePortalClick(portalType)}
+                  masteryCount={mastery}
+                  onClick={() => !isLocked && handlePortalClick(type)}
                 />
               );
             })}
