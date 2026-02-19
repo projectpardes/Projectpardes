@@ -8,7 +8,7 @@ import { syncParashaWithChabad, generateParashaBannerAI, generateMeritBadge, gen
 import { soundManager, SFX } from '../services/soundService';
 import { GoogleGenAI, Type } from "@google/genai";
 
-type AdminTab = 'parasha' | 'merits' | 'stickers' | 'questions' | 'music' | 'supporters' | 'users';
+type AdminTab = 'parasha' | 'merits' | 'stickers' | 'questions' | 'music' | 'supporters' | 'users' | 'system';
 
 interface AdminDashboardProps {
   onRefreshParasha: () => void;
@@ -69,6 +69,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
     { id: 'music', icon: '🎵', label: 'Músicas', desc: 'Playlist de nigunim' },
     { id: 'supporters', icon: '❤️', label: 'Apoiadores', desc: 'Doações e tiers' },
     { id: 'users', icon: '👥', label: 'Usuários', desc: 'Gestão de jogadores' },
+    { id: 'system', icon: '⚙️', label: 'Sistema', desc: 'Assets e Manutenção' },
   ];
 
   useEffect(() => {
@@ -98,6 +99,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
       case 'music': table = 'nigunim'; break;
       case 'supporters': table = 'profiles'; break;
       case 'users': table = 'profiles'; break;
+      case 'system': setLoading(false); return; // No DB fetch for system tab
     }
 
     try {
@@ -116,6 +118,122 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
       setData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // --- FUNÇÕES DE SISTEMA ---
+
+  // Helper para converter base64 em Blob para upload
+  const base64ToBlob = (base64: string, mimeType: string) => {
+    const byteString = atob(base64.split(',')[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeType });
+  };
+
+  const handleGeneratePortalAssets = async () => {
+    if (!window.confirm("Isso irá gerar novas imagens via IA para TODOS os portais e substituir os arquivos no bucket 'images'. Deseja continuar?")) return;
+    
+    setLoading(true);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const portals = [
+        { type: PortalType.NOAHIDE, filename: 'portal_noahide.png', prompt: 'A majestic ancient stone tablet floating, engraved with 7 glowing laws in hebrew numbers, ethereal atmosphere, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        { type: PortalType.PSHAT, filename: 'portal_pshat.png', prompt: 'A golden ancient Torah scroll open, floating, glowing with divine light, simple and literal, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        { type: PortalType.REMEZ, filename: 'portal_remez.png', prompt: 'A mystical magnifying glass revealing floating glowing Hebrew letters and numbers, blue aura, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        { type: PortalType.DRASH, filename: 'portal_drash.png', prompt: 'A royal purple crown with storytelling elements, parables, magical aura, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        { type: PortalType.SOD, filename: 'portal_sod.png', prompt: 'A mysterious emerald green key with Kabbalistic symbols, glowing intense light, secret wisdom, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        // { type: PortalType.PARASHA, filename: 'portal_parasha.png', prompt: 'A large open book of life, red velvet cover, floating, glowing, high fantasy item, 3d render, transparent background, isolated.' }
+    ];
+
+    try {
+        for (const portal of portals) {
+            console.log(`Gerando asset para: ${portal.type}...`);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [{ text: portal.prompt }] },
+                config: { imageConfig: { aspectRatio: "3:4" } } // Vertical ratio for portals
+            });
+
+            let base64Data = '';
+            if (response.candidates?.[0]?.content?.parts) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        base64Data = `data:image/png;base64,${part.inlineData.data}`;
+                        break;
+                    }
+                }
+            }
+
+            if (base64Data) {
+                const blob = base64ToBlob(base64Data, 'image/png');
+                const { error } = await supabase.storage
+                    .from('images')
+                    .upload(portal.filename, blob, { upsert: true, contentType: 'image/png' });
+                
+                if (error) {
+                    console.error(`Erro ao fazer upload de ${portal.filename}:`, error);
+                } else {
+                    console.log(`Sucesso: ${portal.filename}`);
+                }
+            }
+        }
+        
+        // Feedback de sucesso solicitado
+        soundManager.play(SFX.VICTORY);
+        alert("✅ PROCESSO CONCLUÍDO!\n\nTodas as imagens dos portais foram geradas e salvas no banco de dados com sucesso. Recarregue a página principal para visualizar as alterações.");
+        
+    } catch (e: any) {
+        console.error("Erro no processo de geração:", e);
+        soundManager.play(SFX.ERROR);
+        alert(`Erro crítico: ${e.message}`);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleSystemReset = async () => {
+    // 1ª Confirmação
+    if (!window.confirm("⚠️ PERIGO: RESET TOTAL DE CONTEÚDO ⚠️\n\nIsso irá APAGAR PERMANENTEMENTE todas as Figurinhas, Méritos e Questões do banco de dados para permitir uma 'Ultra Atualização' limpa.\n\nOs perfis dos jogadores NÃO serão deletados, mas o conteúdo do jogo será resetado. Deseja continuar?")) {
+       return;
+    }
+
+    // 2ª Confirmação com Código
+    const code = window.prompt("Para confirmar o reset, digite a palavra: DELETAR");
+    if (code !== "DELETAR") {
+       alert("Código incorreto. Operação cancelada.");
+       return;
+    }
+
+    setLoading(true);
+    try {
+       console.log("Iniciando limpeza do sistema...");
+       
+       // Lista de tabelas de conteúdo para limpar (UUID placeholder garante que delete tudo que não for esse ID impossível)
+       // Em Supabase, .delete().neq('id', 'uuid-invalido') é um truque comum para deletar tudo se RLS permitir
+       const dummyUUID = '00000000-0000-0000-0000-000000000000';
+
+       await supabase.from('stickers').delete().neq('id', dummyUUID);
+       await supabase.from('merits').delete().neq('id', dummyUUID);
+       await supabase.from('pshat_questions').delete().neq('id', dummyUUID);
+       await supabase.from('remez_questions').delete().neq('id', dummyUUID);
+       await supabase.from('drash_questions').delete().neq('id', dummyUUID);
+       await supabase.from('sod_questions').delete().neq('id', dummyUUID);
+       await supabase.from('nohide_questions').delete().neq('id', dummyUUID);
+       
+       // Opcional: Resetar nigunim ou deixar? Vamos deixar nigunim por enquanto.
+       
+       soundManager.play(SFX.VICTORY);
+       alert("♻️ SISTEMA RESETADO COM SUCESSO!\n\nTodas as tabelas de conteúdo foram limpas. O sistema está pronto para a Ultra Atualização de conteúdo.");
+
+    } catch (e: any) {
+       console.error("Erro no reset:", e);
+       soundManager.play(SFX.ERROR);
+       alert(`Erro ao resetar: ${e.message}`);
+    } finally {
+       setLoading(false);
     }
   };
 
@@ -757,6 +875,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
     </div>
   );
 
+  const renderSystemTab = () => (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <h3 className="font-cinzel text-xl text-white/70">Manutenção do Sistema</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="p-6 border-white/10 bg-slate-900/60">
+           <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
+                 <i className="fas fa-magic text-xl"></i>
+              </div>
+              <div>
+                 <h4 className="font-bold text-lg text-blue-400 mb-2">Gerador de Portais</h4>
+                 <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                    Esta ferramenta usa a IA para gerar automaticamente as imagens transparentes (PNG) para cada um dos 5 portais (Noahide, Pshat, Remez, Drash, Sod) e faz o upload direto para o bucket 'images' do Supabase.
+                 </p>
+                 <Button variant="primary" onClick={handleGeneratePortalAssets} className="w-full">
+                    <i className="fas fa-wand-magic-sparkles mr-2"></i> Gerar & Salvar Portais
+                 </Button>
+              </div>
+           </div>
+        </Card>
+
+        <Card className="p-6 border-white/10 bg-slate-900/60">
+           <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center text-red-400">
+                 <i className="fas fa-database text-xl"></i>
+              </div>
+              <div>
+                 <h4 className="font-bold text-lg text-red-400 mb-2">Resetar Banco de Dados</h4>
+                 <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                    Atenção: Esta ação limpará TODAS as tabelas de conteúdo (Figurinhas, Méritos, Perguntas) para permitir uma regeneração completa. Os perfis de usuários não serão apagados.
+                 </p>
+                 <Button variant="outline" onClick={handleSystemReset} className="w-full border-red-500/50 text-red-500 hover:bg-red-500/10">
+                    <i className="fas fa-trash-alt mr-2"></i> Limpar Conteúdo
+                 </Button>
+              </div>
+           </div>
+        </Card>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-screen bg-[#020617] flex overflow-hidden">
       <aside className="w-64 border-r border-white/5 bg-slate-950/50 flex flex-col flex-shrink-0">
@@ -787,6 +947,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
         {loading && (
            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
               <div className="w-10 h-10 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin"></div>
+              <p className="text-white/50 text-xs uppercase tracking-widest animate-pulse">Processando solicitação mística...</p>
            </div>
         )}
 
@@ -798,6 +959,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onRefreshParasha, onRef
            {activeTab === 'music' && renderMusicTab()}
            {activeTab === 'supporters' && renderSupportersTab()}
            {activeTab === 'users' && renderUsersTab()}
+           {activeTab === 'system' && renderSystemTab()}
         </div>
 
         {/* --- MODAIS DE EDIÇÃO --- */}

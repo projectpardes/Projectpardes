@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserProfile, PortalType } from '../types';
-import { PORTAL_DATA } from '../constants';
+import { PORTAL_DATA, PORTAL_THEMES } from '../constants';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { soundManager, SFX } from '../services/soundService';
+import { GoogleGenAI } from "@google/genai";
+import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
   user: UserProfile;
@@ -17,117 +19,24 @@ interface DashboardProps {
   checkUnlock: (type: PortalType) => boolean;
 }
 
-const PortalCard: React.FC<{
-  type: PortalType;
-  data: any;
-  isLocked: boolean;
-  masteryCount: number;
-  onClick: () => void;
-}> = ({ type, data, isLocked, masteryCount, onClick }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const MASTERY_GOAL = 50;
-  const progress = Math.min(100, (masteryCount / MASTERY_GOAL) * 100);
-
-  return (
-    <div 
-      className="flex flex-col items-center w-full"
-      onMouseEnter={() => !isLocked && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div 
-        className={`relative group w-full overflow-hidden rounded-3xl transition-all duration-500 ${isLocked ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:-translate-y-4 cursor-pointer shadow-[0_20px_50px_rgba(0,0,0,0.6)]'}`}
-        onClick={onClick}
-        style={{ paddingBottom: '128%' }} /* Relação 25:32 */
-      >
-        {/* Fundo Desfocado para preencher o card sem vácuo visual */}
-        <div className="absolute inset-0 w-full h-full bg-slate-900">
-           <img 
-              src={data.image} 
-              alt="" 
-              className="w-full h-full object-cover blur-xl opacity-30 scale-110" 
-           />
-        </div>
-
-        {/* Camada de Mídia Principal: object-contain garante que NADA seja cortado */}
-        <div className="absolute inset-0 w-full h-full flex items-center justify-center p-1">
-          {!isLocked && isHovered && data.video ? (
-            <video 
-              src={data.video} 
-              autoPlay 
-              loop 
-              muted 
-              playsInline 
-              className="w-full h-full object-contain animate-in fade-in duration-500 z-10"
-            />
-          ) : (
-            <img 
-              src={data.image} 
-              alt={type} 
-              className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105 z-10" 
-            />
-          )}
-        </div>
-        
-        {/* Overlay de Gradiente Suave para profundidade */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-40 group-hover:opacity-20 transition-opacity duration-500 z-20"></div>
-        
-        {/* Estado Bloqueado */}
-        {isLocked && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px] z-30 p-4 text-center">
-            <i className="fas fa-lock text-4xl text-white/30 mb-3 animate-pulse"></i>
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50 bg-white/5 px-2 py-1 rounded-full border border-white/10 mb-1">
-              Bloqueado
-            </span>
-            <span className="text-[8px] text-yellow-500/80 uppercase max-w-[150px] leading-tight">
-               Requer: {data.unlockCriteria}
-            </span>
-          </div>
-        )}
-
-        {/* Brilho de Borda */}
-        {!isLocked && (
-          <div className="absolute inset-0 border-2 border-white/0 group-hover:border-yellow-500/20 rounded-3xl transition-all duration-500 pointer-events-none z-40"></div>
-        )}
-        
-        {/* Badge de Dificuldade */}
-        <div className={`absolute top-3 right-3 z-40 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest backdrop-blur-md border border-white/10 shadow-lg ${
-            data.difficultyLabel === 'FÁCIL' ? 'bg-green-500/20 text-green-400' :
-            data.difficultyLabel === 'MÉDIO' ? 'bg-yellow-500/20 text-yellow-400' :
-            data.difficultyLabel === 'DIFÍCIL' ? 'bg-orange-500/20 text-orange-400' :
-            'bg-red-500/20 text-red-400'
-        }`}>
-            {data.difficultyLabel}
-        </div>
-      </div>
-
-      {/* Título, Descrição e Progresso abaixo do Portal */}
-      <div className="mt-5 text-center w-full animate-in fade-in slide-in-from-bottom-2 duration-700">
-         <h5 className="font-cinzel text-lg font-bold text-yellow-500/90 tracking-[0.2em] uppercase mb-1 drop-shadow-md">
-           {type === PortalType.NOAHIDE ? '7 Leis' : type}
-         </h5>
-         <p className="text-[9px] text-white/40 font-medium leading-relaxed tracking-wide px-4 italic line-clamp-2 h-8">
-           {data.description}
-         </p>
-
-         {/* Barra de Maestria */}
-         {!isLocked && (
-             <div className="mt-3 px-8 group">
-                <div className="flex justify-between items-end mb-1 opacity-50 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[8px] uppercase tracking-widest text-white/40">Maestria</span>
-                    <span className="text-[8px] uppercase tracking-widest text-yellow-500">{masteryCount}/50</span>
-                </div>
-                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-yellow-500 transition-all duration-1000" style={{width: `${progress}%`}}></div>
-                </div>
-             </div>
-         )}
-      </div>
-    </div>
-  );
+// Helper fora do componente para evitar recriação
+const base64ToBlob = (base64: string, mimeType: string) => {
+  try {
+    const byteString = atob(base64.split(',')[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeType });
+  } catch (e) {
+    console.error("Erro ao converter base64:", e);
+    return null;
+  }
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allMerits, onStartJourney, setView, isAdmin, checkUnlock }) => {
-  // Cálculo de XP para próximo nível (mesma fórmula do App.tsx para visualização)
+  // Cálculo de XP para próximo nível
   const currentLevelXP = Math.floor(100 * Math.pow(user.level, 1.8));
   const progressPercent = Math.min(100, (user.xp / currentLevelXP) * 100);
 
@@ -141,6 +50,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
 
   const [currentMeritIndex, setCurrentMeritIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Estado para controlar qual portal está sendo regenerado
+  const [regeneratingPortal, setRegeneratingPortal] = useState<PortalType | null>(null);
 
   useEffect(() => {
     if (activeMeritIds.length <= 1) return;
@@ -174,11 +86,78 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
     }
   };
 
+  // Função Admin para regenerar imagem do portal
+  const handleRegeneratePortalImage = async (e: React.MouseEvent, type: PortalType) => {
+    e.stopPropagation(); // Impede entrar no portal ao clicar no botão admin
+    e.preventDefault();
+    
+    if (!window.confirm(`ADMIN: Deseja gerar uma nova imagem via IA para o portal ${type}? A imagem atual será substituída.`)) return;
+
+    setRegeneratingPortal(type);
+    
+    // Prompts idênticos ao AdminDashboard para consistência
+    const PROMPTS: Record<string, { filename: string, prompt: string }> = {
+        [PortalType.NOAHIDE]: { filename: 'portal_noahide.png', prompt: 'A majestic ancient stone tablet floating, engraved with 7 glowing laws in hebrew numbers, ethereal atmosphere, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        [PortalType.PSHAT]: { filename: 'portal_pshat.png', prompt: 'A golden ancient Torah scroll open, floating, glowing with divine light, simple and literal, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        [PortalType.REMEZ]: { filename: 'portal_remez.png', prompt: 'A mystical magnifying glass revealing floating glowing Hebrew letters and numbers, blue aura, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        [PortalType.DRASH]: { filename: 'portal_drash.png', prompt: 'A royal purple crown with storytelling elements, parables, magical aura, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+        [PortalType.SOD]: { filename: 'portal_sod.png', prompt: 'A mysterious emerald green key with Kabbalistic symbols, glowing intense light, secret wisdom, high fantasy item, 3d render, transparent background, isolated, magical glow.' },
+    };
+
+    const config = PROMPTS[type];
+    if (!config) {
+        alert("Configuração de prompt não encontrada para este portal.");
+        setRegeneratingPortal(null);
+        return;
+    }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: config.prompt }] },
+            config: { imageConfig: { aspectRatio: "3:4" } }
+        });
+
+        let base64Data = '';
+        if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData) {
+                    base64Data = `data:image/png;base64,${part.inlineData.data}`;
+                    break;
+                }
+            }
+        }
+
+        if (base64Data) {
+            const blob = base64ToBlob(base64Data, 'image/png');
+            if (!blob) throw new Error("Falha na conversão da imagem.");
+
+            const { error } = await supabase.storage
+                .from('images')
+                .upload(config.filename, blob, { upsert: true, contentType: 'image/png' });
+            
+            if (error) throw error;
+
+            soundManager.play(SFX.VICTORY);
+            alert(`Imagem do portal ${type} atualizada com sucesso! Recarregue a página para ver a mudança (Cache do navegador pode segurar a imagem antiga por alguns minutos).`);
+        } else {
+            throw new Error("IA não retornou imagem.");
+        }
+
+    } catch (err: any) {
+        console.error(err);
+        soundManager.play(SFX.ERROR);
+        alert(`Erro ao gerar imagem: ${err.message}`);
+    } finally {
+        setRegeneratingPortal(null);
+    }
+  };
+
   const currentMeritId = activeMeritIds[currentMeritIndex];
   const currentMerit = allMerits.find(m => m.id === currentMeritId);
 
-  // Ordem de Exibição dos Portais (Visual)
-  // Parashá removida do grid principal conforme solicitado
+  // Ordem de Exibição dos Portais
   const ORDERED_PORTALS = [
     PortalType.NOAHIDE,
     PortalType.PSHAT,
@@ -215,7 +194,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             <p className="text-[10px] text-white/50 uppercase tracking-[0.3em]">Versão 3.0 Completa</p>
           </div>
           <div className="flex gap-4">
-            {/* Botão Tela Cheia */}
             <button 
               onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} 
               className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 text-white/70"
@@ -227,7 +205,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             <button onClick={(e) => { e.stopPropagation(); navigate('ranking'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 text-yellow-500 shadow-lg shadow-yellow-500/10">
               <i className="fas fa-trophy"></i>
             </button>
-            {/* Ícone Admin Estritamente Protegido */}
             {isAdmin && (
               <button onClick={(e) => { e.stopPropagation(); navigate('admin'); }} className="w-12 h-12 glass rounded-full flex items-center justify-center hover:bg-white/10 transition-all border border-white/10">
                 <i className="fas fa-cog text-white/70"></i>
@@ -248,15 +225,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
       </div>
 
       <div className="max-w-7xl mx-auto px-6 lg:px-12 -mt-24 relative z-20 space-y-16 pb-32 w-full">
+        {/* SECTION: PERFIL & DESTAQUES */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Perfil e Progresso - Avatar preenchendo o fundo como papel de parede */}
           <Card className="lg:col-span-3 border-white/10 bg-slate-950 shadow-2xl overflow-hidden relative min-h-[380px] p-0 flex flex-col md:flex-row">
-            {/* O Avatar preenche todo o fundo (Wallpaper style) */}
             <div 
               className="absolute inset-0 bg-slate-900 bg-cover bg-center bg-no-repeat transition-transform duration-1000 group-hover:scale-105" 
               style={{ backgroundImage: `url('${profileWallpaper}')` }}
             >
-              {/* Gradiente refinado para garantir legibilidade mantendo a arte visível */}
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/40 to-transparent"></div>
             </div>
 
@@ -320,7 +295,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
             </div>
           </Card>
 
-          {/* Slider de Méritos (Destaques) */}
           <Card className="p-0 border-white/5 bg-slate-900/60 backdrop-blur-2xl relative overflow-hidden flex flex-col items-center justify-center min-h-[380px] group">
             <div className="absolute top-6 inset-x-0 text-center z-10">
               <p className="text-[10px] text-yellow-500 font-black uppercase tracking-[0.4em] drop-shadow-md">Méritos Ativos</p>
@@ -368,34 +342,119 @@ const Dashboard: React.FC<DashboardProps> = ({ user, parasha, currentTrack, allM
           </Card>
         </div>
 
-        {/* Portais do PaRDeS e 7 Leis */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-8 mb-16 w-full max-w-6xl">
-            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-white/20"></div>
-            <h4 className="font-cinzel text-3xl tracking-[0.2em] text-white/90 whitespace-nowrap uppercase text-center drop-shadow-lg">Portais da Sabedoria</h4>
-            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-white/20"></div>
+        {/* SECTION: OS PORTAIS (RESTAURADO PARA GRID INDIVIDUAL) */}
+        <div className="mt-12 mb-20 relative">
+          
+          <div className="text-center mb-16 relative z-10">
+             <h2 className="font-cinzel text-4xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-[#e2d2a4] via-[#d4af37] to-[#8a6d3b] uppercase tracking-widest drop-shadow-[0_2px_15px_rgba(234,179,8,0.3)]">
+               Portais da Sabedoria
+             </h2>
+             <div className="flex items-center justify-center gap-4 mt-4 opacity-60">
+                <div className="h-px w-20 bg-gradient-to-r from-transparent to-yellow-500"></div>
+                <i className="fas fa-star-of-david text-yellow-500 text-xs"></i>
+                <div className="h-px w-20 bg-gradient-to-l from-transparent to-yellow-500"></div>
+             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 w-full max-w-[1400px] mx-auto justify-items-center">
-            {ORDERED_PORTALS.map((type) => {
-              const data = PORTAL_DATA[type];
-              const isLocked = !checkUnlock(type);
-              const mastery = user.portalStats?.[type]?.correctAnswers || 0;
-              
-              return (
-                <PortalCard 
-                  key={type}
-                  type={type}
-                  data={data}
-                  isLocked={isLocked}
-                  masteryCount={mastery}
-                  onClick={() => !isLocked && handlePortalClick(type)}
-                />
-              );
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12 relative z-10 items-end">
+             {ORDERED_PORTALS.map((type, index) => {
+               const data = PORTAL_DATA[type];
+               const isLocked = !checkUnlock(type);
+               const theme = PORTAL_THEMES[type];
+               
+               // Efeito de delay na animação para criar uma "onda"
+               const animDelay = `${index * 150}ms`;
+
+               return (
+                 <div 
+                    key={type}
+                    onClick={() => !isLocked && handlePortalClick(type)}
+                    className={`
+                       group relative flex flex-col items-center justify-end
+                       transition-all duration-500 ease-out
+                       ${isLocked ? 'cursor-not-allowed opacity-60 grayscale' : 'cursor-pointer hover:-translate-y-4'}
+                    `}
+                    style={{ animationDelay: animDelay }}
+                 >
+                    {/* Brilho de Fundo (Glow) - Pointer Events None para não bloquear botão */}
+                    <div className={`
+                       absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] 
+                       rounded-full blur-[60px] opacity-0 group-hover:opacity-40 transition-opacity duration-700 pointer-events-none
+                       ${isLocked ? 'hidden' : theme.bg.replace('bg-', 'bg-')}
+                    `}></div>
+
+                    {/* Imagem do Portal (Flutuante) */}
+                    <div className="relative w-full aspect-[3/4] flex items-end justify-center mb-6 pointer-events-none">
+                       <img 
+                          src={data.image} 
+                          alt={type}
+                          className={`
+                             w-full h-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]
+                             transition-transform duration-700
+                             ${isLocked ? '' : 'group-hover:scale-110 group-hover:drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)]'}
+                          `}
+                       />
+                       
+                       {/* Cadeado se bloqueado */}
+                       {isLocked && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-3xl backdrop-blur-[2px]">
+                             <i className="fas fa-lock text-4xl text-white/50 drop-shadow-lg"></i>
+                          </div>
+                       )}
+                    </div>
+
+                    {/* Título e Status */}
+                    <div className="text-center relative z-10 pointer-events-none">
+                       <h3 className={`
+                          font-cinzel text-xl lg:text-2xl font-bold tracking-[0.2em] uppercase mb-2
+                          transition-colors duration-300
+                          ${isLocked ? 'text-white/30' : 'text-[#e2d2a4] group-hover:text-white group-hover:drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]'}
+                       `}>
+                          {type === PortalType.NOAHIDE ? 'Sete Leis' : type}
+                       </h3>
+                       
+                       <div className={`
+                          h-0.5 w-0 group-hover:w-full mx-auto transition-all duration-500
+                          bg-gradient-to-r from-transparent via-${theme.accent.split('-')[1]}-500 to-transparent
+                       `}></div>
+                       
+                       {!isLocked && (
+                          <p className="text-[9px] text-white/40 uppercase tracking-[0.3em] mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 transform translate-y-2 group-hover:translate-y-0">
+                             Entrar no Portal
+                          </p>
+                       )}
+                       {isLocked && (
+                          <p className="text-[9px] text-white/20 uppercase tracking-[0.1em] mt-1">
+                             <i className="fas fa-lock mr-1"></i> Bloqueado
+                          </p>
+                       )}
+                    </div>
+
+                    {/* Botão Admin para Regenerar Imagem - Z-INDEX 100 e FINAL DO DOM */}
+                    {isAdmin && (
+                        <button
+                            type="button"
+                            onClick={(e) => handleRegeneratePortalImage(e, type)}
+                            className="absolute top-0 right-0 z-[100] p-3 bg-slate-900/90 hover:bg-blue-600/90 rounded-full text-white/80 hover:text-white transition-all backdrop-blur-md border border-white/20 hover:border-blue-400 shadow-[0_0_20px_rgba(0,0,0,0.8)] cursor-pointer"
+                            title={`ADMIN: Gerar Nova Imagem para ${type}`}
+                        >
+                            {regeneratingPortal === type ? (
+                                <i className="fas fa-spinner fa-spin text-sm"></i>
+                            ) : (
+                                <i className="fas fa-wand-magic-sparkles text-sm"></i>
+                            )}
+                        </button>
+                    )}
+                 </div>
+               );
+             })}
           </div>
+
+          {/* Elemento Decorativo de Fundo para unir os portais */}
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-yellow-500/5 to-transparent blur-3xl pointer-events-none rounded-full mx-12"></div>
         </div>
 
+        {/* SECTION: FOOTER ACTIONS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-t border-white/10 pt-16">
            <div className="glass p-6 rounded-[2.5rem] border border-white/5 flex items-center justify-between group transition-all hover:bg-white/[0.03]">
               <div className="flex items-center gap-5">

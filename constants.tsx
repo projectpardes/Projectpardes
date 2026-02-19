@@ -56,9 +56,11 @@ export const PORTAL_THEMES = {
   }
 };
 
+const BASE_STORAGE_URL = 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/public/images';
+
 export const PORTAL_DATA = {
   [PortalType.NOAHIDE]: {
-    image: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/7%20leis.png',
+    image: `${BASE_STORAGE_URL}/portal_noahide.png`,
     video: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/7l.mp4',
     color: 'indigo',
     description: 'As Sete Leis Universais para a Humanidade.',
@@ -68,7 +70,7 @@ export const PORTAL_DATA = {
     unlockCriteria: 'Inicial'
   },
   [PortalType.PSHAT]: {
-    image: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/PSHAT_250x320.png',
+    image: `${BASE_STORAGE_URL}/portal_pshat.png`,
     video: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/PSHAT_250x320.mp4',
     color: 'yellow',
     description: 'O sentido literal e histórico do texto sagrado.',
@@ -78,7 +80,7 @@ export const PORTAL_DATA = {
     unlockCriteria: 'Inicial'
   },
   [PortalType.REMEZ]: {
-    image: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/REMEZ_250x320.png',
+    image: `${BASE_STORAGE_URL}/portal_remez.png`,
     video: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/REMEZ_250x320.mp4',
     color: 'sky',
     description: 'As alusões, dicas e a profundidade da Gematria.',
@@ -88,7 +90,7 @@ export const PORTAL_DATA = {
     unlockCriteria: 'Dominar Pshat e Noahide'
   },
   [PortalType.DRASH]: {
-    image: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/drash.png',
+    image: `${BASE_STORAGE_URL}/portal_drash.png`,
     video: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/DRASH_250x320.mp4',
     color: 'purple',
     description: 'A investigação homilética e as parábolas midráshicas.',
@@ -98,7 +100,7 @@ export const PORTAL_DATA = {
     unlockCriteria: 'Dominar Remez'
   },
   [PortalType.PARASHA]: {
-    image: 'https://images.unsplash.com/photo-1603504369460-6029587f7390?auto=format&fit=crop&q=80&w=400', // Placeholder
+    image: `${BASE_STORAGE_URL}/portal_parasha.png`,
     video: '', 
     color: 'red',
     description: 'Estudo aprofundado das Porções da Torá.',
@@ -108,7 +110,7 @@ export const PORTAL_DATA = {
     unlockCriteria: 'Dominar Drash'
   },
   [PortalType.SOD]: {
-    image: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/SOD.png',
+    image: `${BASE_STORAGE_URL}/portal_sod.png`,
     video: 'https://shkpradqqvixpkbakijr.supabase.co/storage/v1/object/sign/Portoes%20do%20PaRDeS/sod.mp4',
     color: 'green',
     description: 'Os segredos esotéricos e a luz oculta da Cabalá.',
